@@ -23,12 +23,12 @@ class Tomato(commands.Cog):
 
     @commands.hybrid_command(
         name="tomate",
-        description="Joga tomates nas 5 mensagens mais recentes do chat.",
+        description="joga tomates nas 5 mensagens mais recentes do chat.",
     )
     @commands.guild_only()
     async def tomato(self, ctx: commands.Context[commands.Bot]) -> None:
         if ctx.guild is None or not isinstance(ctx.author, discord.Member):
-            await ctx.send("Esse comando so pode ser usado dentro de um servidor.")
+            await ctx.send("tá loko é? esse comando só pode em servidores")
             return
 
         is_admin = ctx.author.guild_permissions.administrator
@@ -37,7 +37,7 @@ class Tomato(commands.Cog):
             if remaining > 0:
                 minutes, seconds = divmod(remaining, 60)
                 await ctx.send(
-                    f"Espere {minutes}m {seconds:02d}s para usar o tomate novamente."
+                    f"espera ai seu gay, {minutes}m {seconds:02d}s para usar o tomate novamente"
                 )
                 return
 
@@ -53,7 +53,7 @@ class Tomato(commands.Cog):
                 break
 
         if not recent_messages:
-            await ctx.send("Nao encontrei mensagens recentes suficientes para jogar tomates.")
+            await ctx.send("não encontrei mensagens recentes suficientes para jogar tomates.")
             return
 
         reacted_messages = 0
@@ -64,7 +64,7 @@ class Tomato(commands.Cog):
             except discord.HTTPException:
                 continue
 
-        await ctx.send(f"Joguei tomates em {reacted_messages} mensagem(ns) recentes.")
+        await ctx.send(f"joguei o tomate em")
 
 
 async def setup(bot: commands.Bot) -> None:

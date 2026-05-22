@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 
 TICKET_IMAGE = ""  # coloque a imagem depois
+SUPPORT_ROLE_ID = 1504998108407398501  # ID do cargo de suporte
 
 class TicketView(discord.ui.View):
     def __init__(self):
@@ -21,6 +22,9 @@ class TicketView(discord.ui.View):
             )
             return
 
+        # Obter o cargo de suporte
+        support_role = guild.get_role(SUPPORT_ROLE_ID)
+
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             interaction.user: discord.PermissionOverwrite(
@@ -28,6 +32,14 @@ class TicketView(discord.ui.View):
                 send_messages=True
             )
         }
+        
+        # Adicionar permissão de ver canal para o cargo de suporte
+        if support_role:
+            overwrites[support_role] = discord.PermissionOverwrite(
+                view_channel=True,
+                send_messages=True,
+                manage_messages=True
+            )
 
         channel = await guild.create_text_channel(
             name=f"ticket-{interaction.user.name}",
@@ -39,9 +51,14 @@ class TicketView(discord.ui.View):
             description="Explique seu problema e aguarde a equipe.",
             color=discord.Color.green()
         )
+        
+        # Mencionar o cargo de suporte
+        mention_text = interaction.user.mention
+        if support_role:
+            mention_text += f" {support_role.mention}"
 
         await channel.send(
-            content=interaction.user.mention,
+            content=mention_text,
             embed=embed
         )
 
@@ -49,6 +66,26 @@ class TicketView(discord.ui.View):
             f"Seu ticket foi criado: {channel.mention}",
             ephemeral=True
         )
+
+class CloseTicketView(discord.ui.View):
+    def __init__(self, channel):
+        super().__init__(timeout=None)
+        self.channel = channel
+
+    @discord.ui.button(label="Confirmar", style=discord.ButtonStyle.red, emoji="✅")
+    async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        await self.channel.delete()
+
+    @discord.ui.button(label="Cancelar", style=discord.ButtonStyle.gray, emoji="❌")
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="❌ Ticket Não Fechado",
+            description="O ticket não será fechado.",
+            color=discord.Color.red()
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        self.stop()
 
 class Tickets(commands.Cog):
     def __init__(self, bot):
@@ -68,6 +105,41 @@ class Tickets(commands.Cog):
             embed.set_image(url=TICKET_IMAGE)
 
         await ctx.send(embed=embed, view=TicketView())
+
+    @commands.command()
+    async def fechar(self, ctx):
+        """Comando para fechar um ticket"""
+        # Verificar se é um canal de ticket
+        if not ctx.channel.name.startswith("ticket-"):
+            embed = discord.Embed(
+                title="❌ Erro",
+                description="Este comando só pode ser usado em canais de ticket!",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+
+        # Obter o cargo de suporte
+        support_role = ctx.guild.get_role(SUPPORT_ROLE_ID)
+        
+        # Verificar se o usuário tem o cargo de suporte
+        if support_role not in ctx.author.roles:
+            embed = discord.Embed(
+                title="❌ Permissão Negada",
+                description="Só administradores podem usar o comando",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+
+        # Criar embed de confirmação
+        embed = discord.Embed(
+            title="⚠️ Confirmação de Fechamento",
+            description="Tem certeza que deseja fechar este ticket?",
+            color=discord.Color.yellow()
+        )
+
+        await ctx.send(embed=embed, view=CloseTicketView(ctx.channel))
 
 async def setup(bot):
     await bot.add_cog(Tickets(bot))

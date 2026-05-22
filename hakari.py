@@ -12,7 +12,7 @@ bot = commands.Bot(command_prefix=",", intents=intents)
 @bot.event
 async def on_ready():
     print(f'✅ Logado como {bot.user}')
-
+    
 async def load_cogs():
     for filename in os.listdir("./cogs"):
         if filename.endswith(".py"):

@@ -21,7 +21,6 @@ class ConfissaoModal(discord.ui.Modal, title="Confissão Anônima"):
     )
 
     async def on_submit(self, interaction: discord.Interaction):
-        # Obter os canais
         logs_channel = interaction.client.get_channel(LOGS_CHANNEL_ID)
         confissoes_channel = interaction.client.get_channel(CONFISSOES_CHANNEL_ID)
         
@@ -32,21 +31,15 @@ class ConfissaoModal(discord.ui.Modal, title="Confissão Anônima"):
             )
             return
 
-        # Obter o texto da confissão
         confissao_text = self.confissao.value
         
-        # Usar embeds personalizadas
-        confissao_embed = ConfessionEmbed(confissao_text).build()
-        log_embed = ConfessionLogEmbed(confissao_text, interaction.user, interaction.guild).build()
+        confissao_embed = await ConfessionEmbed(confissao_text)
+        log_embed = await ConfessionLogEmbed(confissao_text, interaction.user, interaction.guild)
 
         try:
-            # Enviar confissão anônima para o canal de confissões
             await confissoes_channel.send(embed=confissao_embed)
-            
-            # Enviar log para o canal de logs
             await logs_channel.send(embed=log_embed)
             
-            # Confirmar ao usuário
             await interaction.response.send_message(
                 "✅ Sua confissão foi enviada anonimamente!",
                 ephemeral=True

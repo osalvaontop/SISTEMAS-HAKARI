@@ -4,7 +4,7 @@ from typing import Optional
 import discord
 from discord.ext import commands
 from discord import app_commands
-from components import WarnEmbed, ErrorEmbed
+from components import WarnEmbed, ErrorEmbed, MuteEmbed, KickEmbed, BanEmbed
 
 class Admin(commands.Cog):
     def __init__(self, bot):
@@ -41,7 +41,7 @@ class Admin(commands.Cog):
         if not allowed:
             return await ctx.send(message)
 
-        embed = WarnEmbed(member, reason, ctx.author).build()
+        embed = await WarnEmbed(member, reason, ctx.author)
         await ctx.send(embed=embed)
 
         try:
@@ -57,7 +57,7 @@ class Admin(commands.Cog):
         if not allowed:
             return await interaction.response.send_message(message, ephemeral=True)
 
-        embed = WarnEmbed(member, reason, interaction.user).build()
+        embed = await WarnEmbed(member, reason, interaction.user)
         await interaction.response.send_message(embed=embed)
 
         try:
@@ -76,15 +76,18 @@ class Admin(commands.Cog):
 
         seconds = self._parse_duration(duration)
         if seconds is None:
-            return await ctx.send("Use uma duração válida, por exemplo: `10m`, `1h`, `30s`.")
+            error_embed = await ErrorEmbed("Duração Inválida", "Use uma duração válida, por exemplo: `10m`, `1h`, `30s`.")
+            return await ctx.send(embed=error_embed)
 
         until = discord.utils.utcnow() + datetime.timedelta(seconds=seconds)
         try:
             await member.timeout(until, reason=reason)
         except Exception as exc:
-            return await ctx.send(f"Não foi possível mutar: {exc}")
+            error_embed = await ErrorEmbed("Erro", f"Não foi possível mutar: {exc}")
+            return await ctx.send(embed=error_embed)
 
-        await ctx.send(f"🔇 {member.mention} foi mutado por {duration}. Motivo: {reason}")
+        embed = await MuteEmbed(member, duration, reason)
+        await ctx.send(embed=embed)
 
     @app_commands.command(name="mute", description="Muta um membro")
     @app_commands.checks.has_permissions(moderate_members=True)
@@ -96,15 +99,18 @@ class Admin(commands.Cog):
 
         seconds = self._parse_duration(duration)
         if seconds is None:
-            return await interaction.response.send_message("Use uma duração válida, por exemplo: `10m`, `1h`, `30s`.", ephemeral=True)
+            error_embed = await ErrorEmbed("Duração Inválida", "Use uma duração válida, por exemplo: `10m`, `1h`, `30s`.")
+            return await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
         until = discord.utils.utcnow() + datetime.timedelta(seconds=seconds)
         try:
             await member.timeout(until, reason=reason)
         except Exception as exc:
-            return await interaction.response.send_message(f"Não foi possível mutar: {exc}", ephemeral=True)
+            error_embed = await ErrorEmbed("Erro", f"Não foi possível mutar: {exc}")
+            return await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
-        await interaction.response.send_message(f"🔇 {member.mention} foi mutado por {duration}. Motivo: {reason}")
+        embed = await MuteEmbed(member, duration, reason)
+        await interaction.response.send_message(embed=embed)
 
     # ===== KICK COMMAND =====
     @commands.command(name="kick")
@@ -118,9 +124,11 @@ class Admin(commands.Cog):
         try:
             await member.kick(reason=reason)
         except Exception as exc:
-            return await ctx.send(f"Não foi possível expulsar: {exc}")
+            error_embed = await ErrorEmbed("Erro", f"Não foi possível expulsar: {exc}")
+            return await ctx.send(embed=error_embed)
 
-        await ctx.send(f"👢 {member.mention} foi expulso. Motivo: {reason}")
+        embed = await KickEmbed(member, reason)
+        await ctx.send(embed=embed)
 
     @app_commands.command(name="kick", description="Expulsa um membro")
     @app_commands.checks.has_permissions(kick_members=True)
@@ -156,9 +164,11 @@ class Admin(commands.Cog):
         try:
             await member.ban(reason=reason)
         except Exception as exc:
-            return await ctx.send(f"Não foi possível banir: {exc}")
+            error_embed = await ErrorEmbed("Erro", f"Não foi possível banir: {exc}")
+            return await ctx.send(embed=error_embed)
 
-        await ctx.send(f"⛔ {member.mention} foi banido. Motivo: {reason}")
+        embed = await BanEmbed(member, reason)
+        await ctx.send(embed=embed)
 
     @app_commands.command(name="ban", description="Bane um membro")
     @app_commands.checks.has_permissions(ban_members=True)
@@ -171,15 +181,10 @@ class Admin(commands.Cog):
         try:
             await member.ban(reason=reason)
         except Exception as exc:
-            embed = ErrorEmbed("❌ Erro", f"Não foi possível banir: {exc}").build()
-            return await interaction.response.send_message(embed=embed, ephemeral=True)
+            error_embed = await ErrorEmbed("Erro", f"Não foi possível banir: {exc}")
+            return await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
-        embed = discord.Embed(
-            title="⛔ Membro Banido",
-            description=f"{member.mention} foi banido.",
-            color=discord.Color.dark_red()
-        )
-        embed.add_field(name="Motivo", value=reason, inline=False)
+        embed = await BanEmbed(member, reason)
         await interaction.response.send_message(embed=embed)
 
 async def setup(bot):

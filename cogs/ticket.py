@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from components import TicketEmbed, TicketOpenedEmbed, ConfirmCloseTicketEmbed, TicketClosedEmbed, ErrorEmbed
+from components import TicketEmbed, TicketOpenedEmbed, ConfirmCloseTicketEmbed, TicketClosedEmbed, ErrorEmbed
 
 TICKET_IMAGE = ""  # coloque a imagem depois
 SUPPORT_ROLE_ID = 1504998108407398501  # ID do cargo de suporte
@@ -48,7 +49,7 @@ class TicketView(discord.ui.View):
             overwrites=overwrites
         )
 
-        embed = TicketOpenedEmbed(interaction.user).build()
+        embed = await TicketOpenedEmbed(interaction.user)
         
         # Mencionar o cargo de suporte
         mention_text = interaction.user.mention
@@ -77,7 +78,7 @@ class CloseTicketView(discord.ui.View):
 
     @discord.ui.button(label="Cancelar", style=discord.ButtonStyle.gray, emoji="❌")
     async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        embed = TicketClosedEmbed().build()
+        embed = await TicketClosedEmbed()
         await interaction.response.send_message(embed=embed, ephemeral=True)
         self.stop()
 
@@ -90,59 +91,51 @@ class Tickets(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def painel_prefix(self, ctx):
         """Envia o painel de tickets (prefixo)"""
-        embed = TicketEmbed(TICKET_IMAGE).build()
+        embed = await TicketEmbed(TICKET_IMAGE)
         await ctx.send(embed=embed, view=TicketView())
 
     @app_commands.command(name="painel", description="Envia o painel de tickets")
     @app_commands.checks.has_permissions(administrator=True)
     async def painel_slash(self, interaction: discord.Interaction):
         """Envia o painel de tickets (slash)"""
-        embed = TicketEmbed(TICKET_IMAGE).build()
+        embed = await TicketEmbed(TICKET_IMAGE)
         await interaction.response.send_message(embed=embed, view=TicketView())
 
     # ===== FECHAR COMMAND =====
     @commands.command(name="fechar")
     async def fechar_prefix(self, ctx):
         """Comando para fechar um ticket (prefixo)"""
-        # Verificar se é um canal de ticket
         if not ctx.channel.name.startswith("ticket-"):
-            embed = ErrorEmbed("❌ Erro", "Este comando só pode ser usado em canais de ticket!").build()
+            embed = await ErrorEmbed("Erro", "Este comando só pode ser usado em canais de ticket!")
             await ctx.send(embed=embed)
             return
 
-        # Obter o cargo de suporte
         support_role = ctx.guild.get_role(SUPPORT_ROLE_ID)
         
-        # Verificar se o usuário tem o cargo de suporte
         if support_role not in ctx.author.roles:
-            embed = ErrorEmbed("❌ Permissão Negada", "Só administradores podem usar o comando").build()
+            embed = await ErrorEmbed("Permissão Negada", "Só administradores podem usar o comando")
             await ctx.send(embed=embed)
             return
 
-        # Criar embed de confirmação
-        embed = ConfirmCloseTicketEmbed().build()
+        embed = await ConfirmCloseTicketEmbed()
         await ctx.send(embed=embed, view=CloseTicketView(ctx.channel))
 
     @app_commands.command(name="fechar", description="Fecha um ticket")
     async def fechar_slash(self, interaction: discord.Interaction):
         """Comando para fechar um ticket (slash)"""
-        # Verificar se é um canal de ticket
         if not interaction.channel.name.startswith("ticket-"):
-            embed = ErrorEmbed("❌ Erro", "Este comando só pode ser usado em canais de ticket!").build()
+            embed = await ErrorEmbed("Erro", "Este comando só pode ser usado em canais de ticket!")
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
-        # Obter o cargo de suporte
         support_role = interaction.guild.get_role(SUPPORT_ROLE_ID)
         
-        # Verificar se o usuário tem o cargo de suporte
         if support_role not in interaction.user.roles:
-            embed = ErrorEmbed("❌ Permissão Negada", "Só administradores podem usar o comando").build()
+            embed = await ErrorEmbed("Permissão Negada", "Só administradores podem usar o comando")
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
-        # Criar embed de confirmação
-        embed = ConfirmCloseTicketEmbed().build()
+        embed = await ConfirmCloseTicketEmbed()
         await interaction.response.send_message(embed=embed, view=CloseTicketView(interaction.channel))
 
 async def setup(bot):

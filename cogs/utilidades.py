@@ -10,14 +10,14 @@ class ServerInfo(commands.Cog):
     @commands.command(name="serverinfo")
     async def serverinfo_prefix(self, ctx):
         """Exibe informações do servidor (prefixo)"""
-        embed = ServerInfoEmbed(ctx.guild).build()
-        await ctx.send(embed=embed)
+        embeds = await ServerInfoEmbed(ctx.guild)
+        await ctx.send(embeds=embeds)
 
     @app_commands.command(name="serverinfo", description="Exibe informações do servidor")
     async def serverinfo_slash(self, interaction: discord.Interaction):
         """Exibe informações do servidor (slash)"""
-        embed = ServerInfoEmbed(interaction.guild).build()
-        await interaction.response.send_message(embed=embed)
+        embeds = await ServerInfoEmbed(interaction.guild)
+        await interaction.response.send_message(embeds=embeds)
 
 
 class UserInfo(commands.Cog):
@@ -28,15 +28,15 @@ class UserInfo(commands.Cog):
     async def userinfo_prefix(self, ctx, member: discord.Member = None):
         """Exibe informações de um usuário (prefixo)"""
         member = member or ctx.author
-        embed = UserInfoEmbed(member).build()
-        await ctx.send(embed=embed)
+        embeds = await UserInfoEmbed(member)
+        await ctx.send(embeds=embeds)
 
     @app_commands.command(name="userinfo", description="Exibe informações de um usuário")
     async def userinfo_slash(self, interaction: discord.Interaction, member: discord.Member = None):
         """Exibe informações de um usuário (slash)"""
         member = member or interaction.user
-        embed = UserInfoEmbed(member).build()
-        await interaction.response.send_message(embed=embed)
+        embeds = await UserInfoEmbed(member)
+        await interaction.response.send_message(embeds=embeds)
 
 
 class Utilities(commands.Cog):
@@ -47,53 +47,45 @@ class Utilities(commands.Cog):
     async def ping_prefix(self, ctx):
         """Exibe a latência da API do Discord (prefixo)"""
         latency = round(self.bot.latency * 1000)
-        embed = PingEmbed(latency).build()
+        embed = await PingEmbed(latency)
         await ctx.send(embed=embed)
 
     @app_commands.command(name="ping", description="Exibe a latência da API do Discord")
     async def ping_slash(self, interaction: discord.Interaction):
         """Exibe a latência da API do Discord (slash)"""
         latency = round(self.bot.latency * 1000)
-        embed = PingEmbed(latency).build()
+        embed = await PingEmbed(latency)
         await interaction.response.send_message(embed=embed)
 
     @commands.command(name="ajuda")
     async def ajuda_prefix(self, ctx):
         """Exibe informações do bot e comandos disponíveis (prefixo)"""
-        # Construir lista de comandos
         commands_list = []
         for cog in self.bot.cogs.values():
             for command in cog.get_commands():
                 commands_list.append(f"`{self.bot.command_prefix}{command.name}` - {command.help or 'Sem descrição'}")
         
-        commands_text = "\n".join(commands_list[:20]) if commands_list else "Nenhum comando encontrado"
-        
-        embed = HelpEmbed(
+        embeds = await HelpEmbed(
             self.bot.user.name,
             self.bot.command_prefix,
-            commands_text
-        ).build()
-        
-        await ctx.send(embed=embed)
+            commands_list
+        )
+        await ctx.send(embeds=embeds)
 
     @app_commands.command(name="ajuda", description="Exibe informações do bot e comandos disponíveis")
     async def ajuda_slash(self, interaction: discord.Interaction):
         """Exibe informações do bot e comandos disponíveis (slash)"""
-        # Construir lista de comandos
         commands_list = []
         for cog in self.bot.cogs.values():
             for command in cog.get_commands():
                 commands_list.append(f"`{self.bot.command_prefix}{command.name}` - {command.help or 'Sem descrição'}")
         
-        commands_text = "\n".join(commands_list[:20]) if commands_list else "Nenhum comando encontrado"
-        
-        embed = HelpEmbed(
+        embeds = await HelpEmbed(
             self.bot.user.name,
             self.bot.command_prefix,
-            commands_text
-        ).build()
-        
-        await interaction.response.send_message(embed=embed)
+            commands_list
+        )
+        await interaction.response.send_message(embeds=embeds)
 
 
 async def setup(bot):

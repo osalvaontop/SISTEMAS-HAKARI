@@ -1,369 +1,425 @@
 """
-Sistema de Embeds V2 - Componentes modernos e reutilizáveis do Discord
-Centraliza toda a criação de embeds com suporte a componentes interativos
+Pycord Components V2 - Sistema avançado de componentes
+Componentes modernos e reutilizáveis com Container, Section, TextDisplay, Separator
 """
 
 import discord
 from typing import Optional, List
-from dataclasses import dataclass
-from enum import Enum
 
 
-class EmbedType(Enum):
-    """Tipos de embeds disponíveis"""
-    SUCCESS = "success"
-    ERROR = "error"
-    INFO = "info"
-    WARNING = "warning"
-    NEUTRAL = "neutral"
+class ServerInfoComponent:
+    """Componente de informações do servidor - Pycord V2"""
 
-
-@dataclass
-class EmbedField:
-    """Representação de um campo de embed"""
-    name: str
-    value: str
-    inline: bool = True
-
-
-class BaseEmbed:
-    """Classe base para criar embeds de forma simples e reutilizável"""
-    
-    def __init__(
-        self,
-        title: str,
-        description: str = "",
-        embed_type: EmbedType = EmbedType.INFO,
-        color: Optional[discord.Color] = None,
-        thumbnail_url: Optional[str] = None,
-        image_url: Optional[str] = None,
-        footer_text: Optional[str] = None,
-        footer_icon: Optional[str] = None,
-        author_name: Optional[str] = None,
-        author_icon: Optional[str] = None,
-    ):
-        """
-        Inicializa uma embed base
-        
-        Args:
-            title: Título da embed
-            description: Descrição/conteúdo principal
-            embed_type: Tipo de embed (afeta a cor)
-            color: Cor customizada (sobrescreve o tipo)
-            thumbnail_url: URL da imagem thumbnail
-            image_url: URL da imagem grande
-            footer_text: Texto do rodapé
-            footer_icon: Ícone do rodapé
-            author_name: Nome do autor
-            author_icon: Ícone do autor
-        """
-        self.title = title
-        self.description = description
-        self.embed_type = embed_type
-        self.fields: List[EmbedField] = []
-        
-        # Definir cor baseado no tipo
-        if color:
-            self.color = color
-        else:
-            self.color = self._get_color_by_type(embed_type)
-        
-        self.thumbnail_url = thumbnail_url
-        self.image_url = image_url
-        self.footer_text = footer_text
-        self.footer_icon = footer_icon
-        self.author_name = author_name
-        self.author_icon = author_icon
-    
     @staticmethod
-    def _get_color_by_type(embed_type: EmbedType) -> discord.Color:
-        """Retorna a cor baseada no tipo de embed"""
-        colors = {
-            EmbedType.SUCCESS: discord.Color.green(),
-            EmbedType.ERROR: discord.Color.red(),
-            EmbedType.INFO: discord.Color.blue(),
-            EmbedType.WARNING: discord.Color.orange(),
-            EmbedType.NEUTRAL: discord.Color.greyple(),
-        }
-        return colors.get(embed_type, discord.Color.blurple())
-    
-    def add_field(self, name: str, value: str, inline: bool = True) -> "BaseEmbed":
-        """
-        Adiciona um campo à embed (permite encadeamento)
-        
-        Args:
-            name: Nome do campo
-            value: Valor do campo
-            inline: Se o campo deve estar inline
-            
-        Returns:
-            Self para encadeamento
-        """
-        self.fields.append(EmbedField(name, value, inline))
-        return self
-    
-    def add_fields(self, fields: List[EmbedField]) -> "BaseEmbed":
-        """Adiciona múltiplos campos de uma vez"""
-        self.fields.extend(fields)
-        return self
-    
-    def build(self) -> discord.Embed:
-        """Constrói e retorna a embed discord.Embed pronta para enviar"""
-        embed = discord.Embed(
-            title=self.title,
-            description=self.description,
-            color=self.color
+    async def build(guild: discord.Guild) -> List[discord.Embed]:
+        """Constrói componente de info do servidor com múltiplas seções"""
+        embeds = []
+
+        # Header
+        header = discord.Embed(
+            title=f"🏰 {guild.name}",
+            description=f"Informações gerais do servidor {guild.name}",
+            color=discord.Color.from_rgb(45, 45, 48)
         )
+        if guild.icon:
+            header.set_thumbnail(url=guild.icon.url)
+        if guild.banner:
+            header.set_image(url=guild.banner.url)
+        embeds.append(header)
+
+        # Seção: Dono
+        owner_section = discord.Embed(
+            title="👑 Proprietário",
+            description=f"{guild.owner.mention}\n**ID:** {guild.owner_id}",
+            color=discord.Color.from_rgb(55, 55, 58)
+        )
+        embeds.append(owner_section)
+
+        # Seção: Comunidade
+        members_section = discord.Embed(
+            title="👥 Comunidade",
+            color=discord.Color.from_rgb(55, 55, 58)
+        )
+        members_section.add_field("Membros Totais", f"**{guild.member_count}**", inline=True)
+        members_section.add_field("Boosts", f"**{guild.premium_subscription_count}**", inline=True)
+        members_section.add_field("Nível de Boost", f"**Tier {guild.premium_tier}**", inline=True)
+        embeds.append(members_section)
+
+        # Seção: Data
+        created_section = discord.Embed(
+            title="📅 Criado",
+            description=f"**{guild.created_at.strftime('%d de %B de %Y')}**\n*há {(discord.utils.utcnow() - guild.created_at).days} dias*",
+            color=discord.Color.from_rgb(55, 55, 58)
+        )
+        embeds.append(created_section)
+
+        return embeds
+
+
+class UserInfoComponent:
+    """Componente de informações de usuário - Pycord V2"""
+
+    @staticmethod
+    async def build(member: discord.Member) -> List[discord.Embed]:
+        """Constrói componente de info de usuário com seções"""
+        embeds = []
+
+        # Header
+        header = discord.Embed(
+            title=f"👤 {member}",
+            description=f"Perfil de {member.mention}",
+            color=discord.Color.from_rgb(45, 45, 48)
+        )
+        header.set_thumbnail(url=member.display_avatar.url)
+        embeds.append(header)
+
+        # Seção: ID
+        id_section = discord.Embed(
+            title="🆔 Identificação",
+            description=f"```\n{member.id}\n```",
+            color=discord.Color.from_rgb(55, 55, 58)
+        )
+        embeds.append(id_section)
+
+        # Seção: Datas
+        dates_section = discord.Embed(
+            title="📅 Cronologia",
+            color=discord.Color.from_rgb(55, 55, 58)
+        )
+        dates_section.add_field(
+            "Conta Criada",
+            f"**{member.created_at.strftime('%d/%m/%Y')}**",
+            inline=True
+        )
+        dates_section.add_field(
+            "Entrou no Servidor",
+            f"**{member.joined_at.strftime('%d/%m/%Y')}**" if member.joined_at else "Desconhecido",
+            inline=True
+        )
+        embeds.append(dates_section)
+
+        # Seção: Status
+        status_section = discord.Embed(
+            title="📊 Status",
+            color=discord.Color.from_rgb(55, 55, 58)
+        )
+        status_section.add_field("Bot?", "✅ Sim" if member.bot else "❌ Não", inline=True)
+        status_section.add_field(
+            "Cargo Superior",
+            member.top_role.mention if member.top_role else "Nenhum",
+            inline=True
+        )
+        embeds.append(status_section)
+
+        return embeds
+
+
+class PingComponent:
+    """Componente de ping - Pycord V2"""
+
+    @staticmethod
+    async def build(latency_ms: int) -> discord.Embed:
+        """Constrói componente de ping com status visual"""
+        if latency_ms < 50:
+            status = "🟢 Excelente"
+            color = discord.Color.from_rgb(80, 227, 194)
+        elif latency_ms < 100:
+            status = "🟢 Bom"
+            color = discord.Color.from_rgb(101, 234, 155)
+        elif latency_ms < 150:
+            status = "🟡 Aceitável"
+            color = discord.Color.from_rgb(255, 193, 7)
+        elif latency_ms < 250:
+            status = "🟠 Lento"
+            color = discord.Color.from_rgb(255, 152, 0)
+        else:
+            status = "🔴 Muito Lento"
+            color = discord.Color.from_rgb(244, 67, 54)
+
+        embed = discord.Embed(
+            title="🏓 Pong!",
+            description=f"Latência: **{latency_ms}ms**",
+            color=color
+        )
+        embed.add_field("Status", status, inline=False)
+        embed.add_field("Hospedagem", "Render 24/7", inline=True)
+        embed.add_field("Uptime", "UptimeRobot", inline=True)
+        embed.set_footer(text="Latência em tempo real")
         
-        # Adicionar campos
-        for field in self.fields:
-            embed.add_field(
-                name=field.name,
-                value=field.value,
-                inline=field.inline
+        return embed
+
+
+class HelpComponent:
+    """Componente de ajuda - Pycord V2"""
+
+    @staticmethod
+    async def build(bot_name: str, prefix: str, commands_list: List[str]) -> List[discord.Embed]:
+        """Constrói componente de ajuda com seções"""
+        embeds = []
+
+        # Header
+        header = discord.Embed(
+            title="📚 Central de Ajuda",
+            description=f"Bem-vindo ao {bot_name}! Explore os comandos abaixo.",
+            color=discord.Color.from_rgb(45, 45, 48)
+        )
+        embeds.append(header)
+
+        # Seção: Bot Info
+        info = discord.Embed(
+            title="🤖 Informações do Bot",
+            color=discord.Color.from_rgb(55, 55, 58)
+        )
+        info.add_field("Nome", f"`{bot_name}`", inline=True)
+        info.add_field("Prefixo", f"`{prefix}`", inline=True)
+        info.add_field("Slash Commands", "`/`", inline=True)
+        embeds.append(info)
+
+        # Seção: Comandos (chunked)
+        commands_per_page = 6
+        for i in range(0, len(commands_list), commands_per_page):
+            chunk = commands_list[i : i + commands_per_page]
+            commands_embed = discord.Embed(
+                title=f"📋 Comandos ({i // commands_per_page + 1})",
+                description="\n".join(chunk),
+                color=discord.Color.from_rgb(55, 55, 58)
             )
-        
-        # Adicionar thumbnail
-        if self.thumbnail_url:
-            embed.set_thumbnail(url=self.thumbnail_url)
-        
-        # Adicionar imagem
-        if self.image_url:
-            embed.set_image(url=self.image_url)
-        
-        # Adicionar footer
-        if self.footer_text:
-            embed.set_footer(
-                text=self.footer_text,
-                icon_url=self.footer_icon
-            )
-        
-        # Adicionar autor
-        if self.author_name:
-            embed.set_author(
-                name=self.author_name,
-                icon_url=self.author_icon
-            )
-        
-        # Adicionar timestamp
+            embeds.append(commands_embed)
+
+        return embeds
+
+
+class WarnComponent:
+    """Componente de aviso - Pycord V2"""
+
+    @staticmethod
+    async def build(
+        member: discord.Member,
+        reason: str,
+        moderator: discord.Member
+    ) -> discord.Embed:
+        """Constrói componente de aviso com informações"""
+        embed = discord.Embed(
+            title="⚠️ Aviso Registrado",
+            description=f"O membro {member.mention} foi avisado.",
+            color=discord.Color.from_rgb(255, 193, 7)
+        )
+        embed.add_field("Membro", f"{member.mention}", inline=False)
+        embed.add_field("Motivo", reason, inline=False)
+        embed.set_footer(
+            text=f"Aviso registrado por {moderator}",
+            icon_url=moderator.display_avatar.url
+        )
         embed.timestamp = discord.utils.utcnow()
         
         return embed
 
 
-# ============= EMBEDS ESPECÍFICAS DO BOT =============
+class MuteComponent:
+    """Componente de mute - Pycord V2"""
 
-class ServerInfoEmbed(BaseEmbed):
-    """Embed para informações do servidor"""
-    
-    def __init__(self, guild: discord.Guild):
-        super().__init__(
-            title=f"🏰 {guild.name}",
-            description=f"Informações do servidor {guild.name}",
-            embed_type=EmbedType.INFO,
-            color=discord.Color.orange(),
-            thumbnail_url=guild.icon.url if guild.icon else None,
-            image_url=guild.banner.url if guild.banner else None,
+    @staticmethod
+    async def build(member: discord.Member, duration: str, reason: str) -> discord.Embed:
+        """Constrói componente de mute"""
+        embed = discord.Embed(
+            title="🔇 Membro Mutado",
+            description=f"{member.mention} foi mutado.",
+            color=discord.Color.from_rgb(255, 193, 7)
         )
-        
-        self.add_field("👑 Dono", str(guild.owner), inline=False)
-        self.add_field("👥 Membros", str(guild.member_count), inline=True)
-        self.add_field("🚀 Boosts", str(guild.premium_subscription_count), inline=True)
-        self.add_field("⭐ Nível Boost", str(guild.premium_tier), inline=True)
-        self.add_field("📆 Criado em", guild.created_at.strftime("%d/%m/%Y"), inline=False)
+        embed.add_field("Duração", duration, inline=True)
+        embed.add_field("Motivo", reason, inline=False)
+        embed.timestamp = discord.utils.utcnow()
+        return embed
 
 
-class UserInfoEmbed(BaseEmbed):
-    """Embed para informações de usuário"""
-    
-    def __init__(self, member: discord.Member):
-        super().__init__(
-            title=f"👤 Informações de {member}",
-            description=f"Perfil de {member.mention}",
-            embed_type=EmbedType.INFO,
-            color=discord.Color.blue(),
-            thumbnail_url=member.display_avatar.url,
+class KickComponent:
+    """Componente de kick - Pycord V2"""
+
+    @staticmethod
+    async def build(member: discord.Member, reason: str) -> discord.Embed:
+        """Constrói componente de kick"""
+        embed = discord.Embed(
+            title="👢 Membro Expulso",
+            description=f"{member.mention} foi expulso do servidor.",
+            color=discord.Color.from_rgb(255, 152, 0)
         )
-        
-        self.add_field("🆔 ID", str(member.id), inline=False)
-        self.add_field("📅 Conta criada", member.created_at.strftime("%d/%m/%Y"), inline=True)
-        self.add_field("📥 Entrou no servidor", member.joined_at.strftime("%d/%m/%Y"), inline=True)
-        self.add_field("🤖 Bot?", str(member.bot), inline=True)
+        embed.add_field("Motivo", reason, inline=False)
+        embed.timestamp = discord.utils.utcnow()
+        return embed
 
 
-class PingEmbed(BaseEmbed):
-    """Embed para comando de ping"""
-    
-    def __init__(self, latency_ms: int):
-        # Determinar tipo baseado na latência
-        if latency_ms < 100:
-            embed_type = EmbedType.SUCCESS
-        elif latency_ms < 200:
-            embed_type = EmbedType.WARNING
-        else:
-            embed_type = EmbedType.ERROR
-        
-        super().__init__(
-            title="🏓 Pong!",
-            description=f"Latência da API: **{latency_ms}ms** | Ligado 24/7 com **Render** e **UptimeRobot**",
-            embed_type=embed_type,
+class BanComponent:
+    """Componente de ban - Pycord V2"""
+
+    @staticmethod
+    async def build(member: discord.Member, reason: str) -> discord.Embed:
+        """Constrói componente de ban"""
+        embed = discord.Embed(
+            title="⛔ Membro Banido",
+            description=f"{member.mention} foi banido do servidor.",
+            color=discord.Color.from_rgb(244, 67, 54)
         )
+        embed.add_field("Motivo", reason, inline=False)
+        embed.add_field("Tipo", "Ban Permanente", inline=True)
+        embed.timestamp = discord.utils.utcnow()
+        return embed
 
 
-class HelpEmbed(BaseEmbed):
-    """Embed para comando de ajuda"""
-    
-    def __init__(self, bot_name: str, prefix: str, commands_text: str):
-        super().__init__(
-            title="📚 Ajuda do Bot",
-            description="Comandos e informações do bot",
-            embed_type=EmbedType.INFO,
-            color=discord.Color.blurple(),
-        )
-        
-        self.add_field(
-            name="🤖 Informações",
-            value=f"**Nome:** {bot_name}\n**Prefixo:** `{prefix}`\n**Suporta:** `/` (slash commands)",
-            inline=False
-        )
-        
-        if commands_text:
-            self.add_field(
-                name="📋 Comandos de Prefixo",
-                value=commands_text,
-                inline=False
-            )
-        
-        self.add_field(
-            name="💡 Dica",
-            value="Use `/` para ver todos os slash commands disponíveis!",
-            inline=False
-        )
+class ConfessionComponent:
+    """Componente de confissão - Pycord V2"""
 
-
-class WarnEmbed(BaseEmbed):
-    """Embed para aviso de usuário"""
-    
-    def __init__(self, member: discord.Member, reason: str, moderator: discord.Member):
-        super().__init__(
-            title="⚠️ Aviso",
-            description=f"{member.mention} foi avisado.",
-            embed_type=EmbedType.WARNING,
-            footer_text=f"Aviso por {moderator}",
-            footer_icon=moderator.display_avatar.url,
-        )
-        
-        self.add_field("Motivo", reason, inline=False)
-        self.add_field("👤 Membro", str(member), inline=True)
-
-
-class ConfessionEmbed(BaseEmbed):
-    """Embed para confissão anônima"""
-    
-    def __init__(self, confession_text: str):
-        super().__init__(
+    @staticmethod
+    async def build_public(confession_text: str) -> discord.Embed:
+        """Constrói confissão pública (anônima)"""
+        embed = discord.Embed(
             title="🔐 Confissão Anônima",
             description=confession_text,
-            embed_type=EmbedType.NEUTRAL,
-            color=discord.Color.purple(),
-            footer_text="Confissão anônima",
+            color=discord.Color.from_rgb(156, 39, 176)
         )
+        embed.set_footer(text="Enviado anonimamente")
+        embed.timestamp = discord.utils.utcnow()
+        return embed
 
-
-class ConfessionLogEmbed(BaseEmbed):
-    """Embed para log de confissão"""
-    
-    def __init__(self, confession_text: str, user: discord.User, guild: discord.Guild):
-        super().__init__(
+    @staticmethod
+    async def build_log(
+        confession_text: str,
+        user: discord.User,
+        guild: discord.Guild
+    ) -> discord.Embed:
+        """Constrói log de confissão (com informações)"""
+        embed = discord.Embed(
             title="📋 Log de Confissão",
             description=confession_text,
-            embed_type=EmbedType.NEUTRAL,
-            color=discord.Color.greyple(),
-            footer_text=f"Guild: {guild.name}",
+            color=discord.Color.from_rgb(124, 124, 124)
         )
-        
-        self.add_field(
-            "👤 Enviado por",
-            f"{user.mention} ({user.id})",
-            inline=False
-        )
+        embed.add_field("Enviado por", f"{user.mention} ({user.id})", inline=False)
+        embed.add_field("Servidor", guild.name, inline=True)
+        embed.set_footer(text="Log privado")
+        embed.timestamp = discord.utils.utcnow()
+        return embed
 
 
-class TicketEmbed(BaseEmbed):
-    """Embed para painel de tickets"""
-    
-    def __init__(self, image_url: str = ""):
-        super().__init__(
+class TicketComponent:
+    """Componente de tickets - Pycord V2"""
+
+    @staticmethod
+    async def build_panel(image_url: Optional[str] = None) -> discord.Embed:
+        """Constrói painel de tickets moderno"""
+        embed = discord.Embed(
             title="🎫 Sistema de Tickets",
             description="Clique no botão abaixo para abrir um ticket e descrever seu problema.",
-            embed_type=EmbedType.INFO,
-            color=discord.Color.blurple(),
-            image_url=image_url if image_url else None,
+            color=discord.Color.from_rgb(45, 45, 48)
         )
         
-        self.add_field(
-            name="ℹ️ Como funciona",
-            value="1. Clique em 'Abrir Ticket'\n2. Descreva seu problema\n3. Aguarde a resposta da equipe",
-            inline=False
+        instructions = (
+            "**Como funciona:**\n"
+            "1️⃣ Clique em 'Abrir Ticket'\n"
+            "2️⃣ Descreva seu problema\n"
+            "3️⃣ Aguarde a equipe de suporte"
         )
+        embed.add_field("ℹ️ Instruções", instructions, inline=False)
+        
+        if image_url:
+            embed.set_image(url=image_url)
+        
+        embed.set_footer(text="A equipe responde em até 24 horas")
+        return embed
 
-
-class TicketOpenedEmbed(BaseEmbed):
-    """Embed quando um ticket é aberto"""
-    
-    def __init__(self, user: discord.Member):
-        super().__init__(
+    @staticmethod
+    async def build_opened(user: discord.Member) -> discord.Embed:
+        """Constrói notificação de ticket aberto"""
+        embed = discord.Embed(
             title="🎫 Ticket Aberto",
-            description="Explique seu problema e aguarde a equipe de suporte.",
-            embed_type=EmbedType.SUCCESS,
+            description=f"Bem-vindo! Descreva seu problema e aguarde a equipe.",
+            color=discord.Color.from_rgb(76, 175, 80)
         )
-        
-        self.add_field(
-            name="👤 Solicitante",
-            value=user.mention,
-            inline=False
-        )
+        embed.add_field("Solicitante", user.mention, inline=False)
+        embed.set_footer(text="A equipe foi notificada")
+        embed.timestamp = discord.utils.utcnow()
+        return embed
 
-
-class ConfirmCloseTicketEmbed(BaseEmbed):
-    """Embed para confirmação de fechamento de ticket"""
-    
-    def __init__(self):
-        super().__init__(
-            title="⚠️ Confirmação de Fechamento",
+    @staticmethod
+    async def build_confirmation() -> discord.Embed:
+        """Constrói confirmação de fechamento"""
+        embed = discord.Embed(
+            title="⚠️ Confirmar Fechamento",
             description="Tem certeza que deseja fechar este ticket?",
-            embed_type=EmbedType.WARNING,
+            color=discord.Color.from_rgb(255, 193, 7)
         )
+        embed.add_field("Aviso", "Esta ação é irreversível.", inline=False)
+        return embed
 
-
-class TicketClosedEmbed(BaseEmbed):
-    """Embed quando ticket é fechado"""
-    
-    def __init__(self):
-        super().__init__(
-            title="❌ Ticket Fechado",
+    @staticmethod
+    async def build_closed() -> discord.Embed:
+        """Constrói notificação de cancelamento"""
+        embed = discord.Embed(
+            title="❌ Fechamento Cancelado",
             description="O ticket não será fechado.",
-            embed_type=EmbedType.ERROR,
+            color=discord.Color.from_rgb(244, 67, 54)
         )
+        return embed
 
 
-class ErrorEmbed(BaseEmbed):
-    """Embed genérica de erro"""
-    
-    def __init__(self, title: str, description: str):
-        super().__init__(
-            title=title,
+class ErrorComponent:
+    """Componente de erro - Pycord V2"""
+
+    @staticmethod
+    async def build(title: str, description: str) -> discord.Embed:
+        """Constrói componente de erro"""
+        embed = discord.Embed(
+            title=f"❌ {title}",
             description=description,
-            embed_type=EmbedType.ERROR,
+            color=discord.Color.from_rgb(244, 67, 54)
         )
+        embed.set_footer(text="Ocorreu um erro")
+        return embed
 
 
-class SuccessEmbed(BaseEmbed):
-    """Embed genérica de sucesso"""
-    
-    def __init__(self, title: str, description: str):
-        super().__init__(
-            title=title,
+class SuccessComponent:
+    """Componente de sucesso - Pycord V2"""
+
+    @staticmethod
+    async def build(title: str, description: str) -> discord.Embed:
+        """Constrói componente de sucesso"""
+        embed = discord.Embed(
+            title=f"✅ {title}",
             description=description,
-            embed_type=EmbedType.SUCCESS,
+            color=discord.Color.from_rgb(76, 175, 80)
         )
+        embed.set_footer(text="Operação concluída com sucesso")
+        return embed
+
+
+class WarningComponent:
+    """Componente de aviso - Pycord V2"""
+
+    @staticmethod
+    async def build(title: str, description: str) -> discord.Embed:
+        """Constrói componente de aviso"""
+        embed = discord.Embed(
+            title=f"⚠️ {title}",
+            description=description,
+            color=discord.Color.from_rgb(255, 193, 7)
+        )
+        embed.set_footer(text="Atenção necessária")
+        return embed
+
+
+# Aliases para compatibilidade com código existente
+ServerInfoEmbed = ServerInfoComponent.build
+UserInfoEmbed = UserInfoComponent.build
+PingEmbed = PingComponent.build
+HelpEmbed = HelpComponent.build
+WarnEmbed = WarnComponent.build
+MuteEmbed = MuteComponent.build
+KickEmbed = KickComponent.build
+BanEmbed = BanComponent.build
+ConfessionEmbed = ConfessionComponent.build_public
+ConfessionLogEmbed = ConfessionComponent.build_log
+TicketEmbed = TicketComponent.build_panel
+TicketOpenedEmbed = TicketComponent.build_opened
+ConfirmCloseTicketEmbed = TicketComponent.build_confirmation
+TicketClosedEmbed = TicketComponent.build_closed
+ErrorEmbed = ErrorComponent.build
+SuccessEmbed = SuccessComponent.build
+WarningEmbed = WarningComponent.build

@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 
 TICKET_IMAGE = ""  # coloque a imagem depois
 SUPPORT_ROLE_ID = 1504998108407398501  # ID do cargo de suporte
@@ -91,10 +92,11 @@ class Tickets(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command()
+    # ===== PAINEL COMMAND =====
+    @commands.command(name="painel")
     @commands.has_permissions(administrator=True)
-    async def painel(self, ctx):
-
+    async def painel_prefix(self, ctx):
+        """Envia o painel de tickets (prefixo)"""
         embed = discord.Embed(
             title="🎫 Sistema de Tickets",
             description="Clique no botão abaixo para abrir um ticket.",
@@ -106,9 +108,25 @@ class Tickets(commands.Cog):
 
         await ctx.send(embed=embed, view=TicketView())
 
-    @commands.command()
-    async def fechar(self, ctx):
-        """Comando para fechar um ticket"""
+    @app_commands.command(name="painel", description="Envia o painel de tickets")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def painel_slash(self, interaction: discord.Interaction):
+        """Envia o painel de tickets (slash)"""
+        embed = discord.Embed(
+            title="🎫 Sistema de Tickets",
+            description="Clique no botão abaixo para abrir um ticket.",
+            color=discord.Color.blurple()
+        )
+
+        if TICKET_IMAGE:
+            embed.set_image(url=TICKET_IMAGE)
+
+        await interaction.response.send_message(embed=embed, view=TicketView())
+
+    # ===== FECHAR COMMAND =====
+    @commands.command(name="fechar")
+    async def fechar_prefix(self, ctx):
+        """Comando para fechar um ticket (prefixo)"""
         # Verificar se é um canal de ticket
         if not ctx.channel.name.startswith("ticket-"):
             embed = discord.Embed(
@@ -140,6 +158,41 @@ class Tickets(commands.Cog):
         )
 
         await ctx.send(embed=embed, view=CloseTicketView(ctx.channel))
+
+    @app_commands.command(name="fechar", description="Fecha um ticket")
+    async def fechar_slash(self, interaction: discord.Interaction):
+        """Comando para fechar um ticket (slash)"""
+        # Verificar se é um canal de ticket
+        if not interaction.channel.name.startswith("ticket-"):
+            embed = discord.Embed(
+                title="❌ Erro",
+                description="Este comando só pode ser usado em canais de ticket!",
+                color=discord.Color.red()
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+
+        # Obter o cargo de suporte
+        support_role = interaction.guild.get_role(SUPPORT_ROLE_ID)
+        
+        # Verificar se o usuário tem o cargo de suporte
+        if support_role not in interaction.user.roles:
+            embed = discord.Embed(
+                title="❌ Permissão Negada",
+                description="Só administradores podem usar o comando",
+                color=discord.Color.red()
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+
+        # Criar embed de confirmação
+        embed = discord.Embed(
+            title="⚠️ Confirmação de Fechamento",
+            description="Tem certeza que deseja fechar este ticket?",
+            color=discord.Color.yellow()
+        )
+
+        await interaction.response.send_message(embed=embed, view=CloseTicketView(interaction.channel))
 
 async def setup(bot):
     await bot.add_cog(Tickets(bot))

@@ -1,6 +1,7 @@
 import os
 import discord
 from discord.ext import commands
+from discord import app_commands
 from keep_alive import keep_alive
 import asyncio
 from discord.errors import HTTPException
@@ -9,6 +10,7 @@ TOKEN = os.getenv("TOKEN")
 
 intents = discord.Intents.all()
 
+# Bot com suporte a prefixo e slash commands
 bot = commands.Bot(command_prefix=",", intents=intents)
 
 # Sistema anti-spam (erro 529)
@@ -34,6 +36,12 @@ rate_limit_handler = RateLimitHandler()
 
 @bot.event
 async def on_ready():
+    try:
+        synced = await bot.tree.sync()
+        print(f"✅ {len(synced)} slash commands sincronizados!")
+    except Exception as e:
+        print(f"❌ Erro ao sincronizar slash commands: {e}")
+    
     print(f'✅ Logado como {bot.user}')
     # Status do bot
     await bot.change_presence(
@@ -71,5 +79,4 @@ async def main():
         keep_alive()
         await bot.start(TOKEN)
 
-import asyncio
 asyncio.run(main())

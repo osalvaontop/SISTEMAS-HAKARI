@@ -109,7 +109,7 @@ class AFK(commands.Cog):
         if afk_mentioned:
             embed = discord.Embed(
                 title="⏱️ aviso",
-                description="esse caba ai ta afk macho/macha: {user.mention}",
+                description="esse caba ai ta afk macho/macha",
                 color=discord.Color.orange()
             )
             

@@ -40,6 +40,7 @@ class ConfissaoModal(discord.ui.Modal, title="confissão anônima"):
             description="confissão:",confissao_text,
             color=discord.Color.purple()
         )
+        
         confissao_embed.set_footer(text="as confissões são totalmente anônimas")
         confissao_embed.timestamp = discord.utils.utcnow()
         

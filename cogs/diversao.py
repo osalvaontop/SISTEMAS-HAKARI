@@ -371,7 +371,7 @@ class ConfissaoButtonsView(discord.ui.View):
         super().__init__(timeout=None)
         self.bot = bot
     
-    @discord.ui.button(label="Responder", style=discord.ButtonStyle.green, emoji="💬")
+    @discord.ui.button(label="Responder", style=discord.ButtonStyle.green, emoji="💬", custom_id="confissao_responder")
     async def responder_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Obter dados da confissão
         message = interaction.message
@@ -387,7 +387,7 @@ class ConfissaoButtonsView(discord.ui.View):
         modal = RespostaConfissaoModal(message.id, confissao_text, self.bot)
         await interaction.response.send_modal(modal)
     
-    @discord.ui.button(label="Denunciar", style=discord.ButtonStyle.red, emoji="⚠️")
+    @discord.ui.button(label="Denunciar", style=discord.ButtonStyle.red, emoji="⚠️", custom_id="confissao_denunciar")
     async def denunciar_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Incrementar reports
         message = interaction.message
@@ -457,6 +457,7 @@ class ModeracaoView(discord.ui.View):
     
     @discord.ui.select(
         placeholder="abrir caso de moderação",
+        custom_id="moderacao_actions",
         options=[
             discord.SelectOption(label="Avisar", value="avisar", emoji="⚠️"),
             discord.SelectOption(label="Castigar", value="castigar", emoji="🔇"),

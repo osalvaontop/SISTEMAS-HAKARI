@@ -5,10 +5,10 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "recado importante: o kae é gay e sempre foi (online na porta 3000)"
+    return "bot do salvinha, online na porta 5000"
 
 def run():
-    app.run(host='0.0.0.0', port=3000)
+    app.run(host='0.0.0.0', port=5000)
 
 def keep_alive():
     t = Thread(target=run)

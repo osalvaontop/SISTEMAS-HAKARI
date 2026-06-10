@@ -28,43 +28,31 @@ class SupportStatus(commands.Cog):
         guild = channel.guild
         role = guild.get_role(SUPPORT_ROLE_ID)
 
-        if role is None:
+       if role is None:
             return
 
         staffs_online = sum(
             1
-            for member in role.members
-            if not member.bot and member.status != discord.Status.offline
+        for member in role.members
+        if (
+            not member.bot
+            and member.status in (
+                discord.Status.online,
+                discord.Status.idle,
+                discord.Status.dnd
+            )
         )
+    )
 
-        suporte_online = staffs_online > 0
+if staffs_online > 0:
+    nova_mensagem = f"suporte ativo: **{staffs_online} staff(s) online**."
+else:
+    nova_mensagem = "suporte inativo: não tem staff online kkkkkkkkkkkkkkj."
 
-        novo_status = "on" if suporte_online else "off"
+novo_status = staffs_online
 
-        if suporte_online:
-            nova_mensagem = f"suporte ativo: **{staffs_online} staff(s) online**."
-        else:
-            nova_mensagem = "suporte inativo: não tem staff online kkkkkkkkkkkkkkj."
-
-        if self.last_status == novo_status:
-            return
-
-        if self.last_message:
-            try:
-                await self.last_message.delete()
-            except:
-                pass
-
-        async for msg in channel.history(limit=20):
-            if msg.author == self.bot.user and msg.content in ["suporte on: staffs online", "suporte off: tem nenhum staff online kkkkkkj"]:
-                try:
-                    await msg.delete()
-                except:
-                    pass
-
-        self.last_message = await channel.send(nova_mensagem)
-        self.last_status = novo_status
-
+if self.last_status == novo_status:
+    return
     @tasks.loop(seconds=30)
     async def check_support_status(self):
         await self.update_support_status()

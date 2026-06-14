@@ -48,7 +48,7 @@ async def on_ready():
         status=discord.Status.idle,
         activity=discord.Activity(
             type=discord.ActivityType.watching,
-            name="Hakari v2.3.15"
+            name="pra você que quer programar: tenha medo do erro 429 do Discord."
         )
     )
     rate_limit_handler.reset()

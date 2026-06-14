@@ -200,8 +200,7 @@ def home():
     <main class="card">
         <h1>página de host do hakari</h1>
         <p class="subtitle">
-            informações públicas da hospedagem e conexão do bot
-            e é claro que informações confidenciais como o TOKEN não vão ser exibidas aqui, seu maluco caloteiro
+            informações públicas da hospedagem e conexão do bot, e é claro que informações confidenciais como o TOKEN não vão ser exibidas aqui, seu maluco caloteiro sem pai sem mãe mendigo vagabundo babaca zé cagão
         </p>
 
         <section class="info">

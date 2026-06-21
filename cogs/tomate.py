@@ -29,7 +29,7 @@ async def tomate_core(channel, author, send):
 
             if remaining > 0:
                 await send(
-                    f"⏳ espere {int(remaining)} segundos para usar novamente (cooldown de **15 minutos**)"
+                    f"⏳ cooldown ativo (**15 minutos**)"
                 )
                 return
 
@@ -42,7 +42,7 @@ async def tomate_core(channel, author, send):
     ]
 
     if not messages:
-        await send("🍅 não achei mensagem pra tacar tomate")
+        await send("não achei mensagem pra tacar tomate")
         return
 
     selected_msg = random.choice(messages)
@@ -53,11 +53,11 @@ async def tomate_core(channel, author, send):
         try:
             await selected_msg.add_reaction("🍅")
             await send(
-                "LASCOU, joguei o tomate em um dos STAFFS / GERENTES do servidor😭"
+                "eta porra taquei nos staffs / gerentes do servidor, vou tomar ban nao ne administraçao"
             )
         except discord.Forbidden:
             await send(
-                "❌ não tenho permissão pra reagir mensagens pô"
+                "não tenho permissão pra reagir mensagens pô"
             )
         return
 
@@ -66,21 +66,21 @@ async def tomate_core(channel, author, send):
     # 35%
     if chance <= 35:
         await send(
-            f"**RARO**(**CHANCE: 35%**): {target.mention} desviou do tomate!"
+            f"**RARO**(**CHANCE: 35%**): {target.mention} desviou do tomate"
         )
         return
 
     # 10%
     elif chance <= 45:
         await send(
-            f"**SUPER RARO**(**CHANCE: 10%**): {target.mention} deu parry e jogou de volta em {author.mention}!"
+            f"**SUPER RARO**(**CHANCE: 10%**): {target.mention} deu parry e jogou de volta em {author.mention}"
         )
         return
 
     # 5%
     elif chance <= 50:
         await send(
-            f"**ULTRA RARO**(**CHANCE: 5%**): {target.mention} puxou uma KATANA e cortou o tomate AO MEIO no AR☠️☠️☠️"
+            f"**ULTRA RARO**(**CHANCE: 5%**): {target.mention} puxou uma KATANA e cortou o tomate AO MEIO no AR."
         )
         return
 
@@ -98,21 +98,21 @@ async def tomate_core(channel, author, send):
 
             if target.id == author.id:
                 await send(
-                    f"☠️ {author.mention} tentou jogar um tomate e acabou acertando a si mesmo KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK"
+                    f"{author.mention} tentou jogar um tomate e acabou acertando a si mesmo KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKJ"
                 )
             else:
                 await send(
-                    f"🍅 {target.mention} foi atingido pelo tomate"
+                    f"{target.mention} foi atingido pelo tomate"
                 )
 
         except discord.Forbidden:
             await send(
-                "❌ não tenho permissão pra reagir mensagens caralho"
+                "não tenho permissão pra reagir mensagens caralho"
             )
 
         except Exception as e:
             await send(
-                f"❌ erro ao lançar tomate: `{e}`"
+                f"erro ao lançar tomate: `{e}`"
             )
 
 

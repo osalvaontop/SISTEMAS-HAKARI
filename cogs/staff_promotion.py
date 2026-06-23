@@ -52,7 +52,7 @@ class StaffPromotion(commands.Cog):
             },
             1490679537032495303: {
                 "next_role": None,
-                "points_needed": None,
+                "points_needed": 60,
                 "role_name": "Gestão ⋆⭒˚.⋆",
                 "is_final": True
             }

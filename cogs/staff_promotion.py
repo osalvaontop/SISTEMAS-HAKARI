@@ -120,11 +120,11 @@ class StaffPromotion(commands.Cog):
 
     @app_commands.command(
         name="ponto",
-        description="Adiciona ou remove pontos de um staff"
+        description="adiciona ou remove pontos de um staff"
     )
     @app_commands.describe(
-        staff="O staff que receberá os pontos",
-        quantia="Quantidade de pontos (positivo para adicionar, negativo para remover, exemplo: -15, +15)"
+        staff="o staff que receberá os pontos",
+        quantia="quantidade de pontos (positivo para adicionar, negativo para remover, exemplo: -15, +15)"
     )
     async def add_points_command(
         self,
@@ -161,51 +161,85 @@ class StaffPromotion(commands.Cog):
             current_role = self.get_highest_staff_role(staff)
             role_name = self.promotion_chains[current_role]["role_name"]
             
-            embed = discord.Embed(
-                title="🎉 promoção de staff!",
-                description=f"{staff.mention} foi promovido para **{role_name}**!",
-                color=discord.Color.gold()
-            )
-            embed.add_field(name="pontos Anteriores", value=f"{new_points - quantia}", inline=False)
-            embed.add_field(name="pontos Atuais", value="0", inline=False)
-            embed.set_thumbnail(url=staff.display_avatar.url)
+            message = f"🎉 promoção de staff!\n{staff.mention} foi promovido para **{role_name}**!\npontos anteriores: {new_points - quantia}\npontos atuais: 0"
             
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(message)
         else:
-            embed = discord.Embed(
-                title="📊 pontos atualizados",
-                description=f"pontos de {staff.mention} foram atualizados!",
-                color=discord.Color.blue()
-            )
-            embed.add_field(name="operação", value=f"+{quantia}" if quantia > 0 else f"{quantia}", inline=False)
-            embed.add_field(name="pontos totais", value=f"{new_points}", inline=False)
-            
             # Mostra progresso para a próxima promoção
             current_role_id = self.get_highest_staff_role(staff)
+            operation = f"+{quantia}" if quantia > 0 else f"{quantia}"
+            
             if current_role_id:
                 promotion_info = self.promotion_chains[current_role_id]
                 if not promotion_info.get("is_final"):
                     points_needed = promotion_info["points_needed"]
                     next_role_name = self.promotion_chains[promotion_info["next_role"]]["role_name"]
-                    embed.add_field(
-                        name="Próxima Promoção",
-                        value=f"{next_role_name}: {new_points}/{points_needed} pontos",
-                        inline=False
-                    )
+                    message = f"📊 pontos atualizados\npontos de {staff.mention} foram atualizados!\noperação: {operation}\npontos totais: {new_points}\npróxima promoção: {next_role_name}: {new_points}/{points_needed} pontos"
                 else:
-                    embed.add_field(
-                        name="Status",
-                        value="⭐ cargo máximo atingido! agora que chegou na gestão do servidor, você só sobe de cargo por mérito da dona(decisão da dona do servidor)",
-                        inline=False
-                    )
+                    message = f"📊 pontos atualizados\npontos de {staff.mention} foram atualizados!\noperação: {operation}\npontos totais: {new_points}\nstatus: ⭐ cargo máximo atingido! agora que chegou na gestão do servidor, você só sobe de cargo por mérito da dona (decisão da dona do servidor)"
+            else:
+                message = f"📊 pontos atualizados\npontos de {staff.mention} foram atualizados!\noperação: {operation}\npontos totais: {new_points}"
             
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(message)
+
+    @app_commands.command(
+        name="remover_pontos",
+        description="remove pontos de um staff"
+    )
+    @app_commands.describe(
+        staff="o staff que perderá os pontos",
+        quantia="quantidade de pontos a remover"
+    )
+    async def remove_points_command(
+        self,
+        interaction: discord.Interaction,
+        staff: discord.Member,
+        quantia: int
+    ):
+        """Comando para remover pontos diretamente"""
+        
+        # Verificação de permissões - apenas líderes/admins podem usar
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message(
+                "❌ você não tem permissão para usar este comando",
+                ephemeral=True
+            )
+            return
+
+        # Verifica se o staff tem cargo staff
+        if self.get_highest_staff_role(staff) is None:
+            await interaction.response.send_message(
+                f"❌ {staff.mention} não possui um cargo de staff",
+                ephemeral=True
+            )
+            return
+
+        # Remove os pontos
+        current_points = self.get_user_points(staff.id)
+        self.add_points(staff.id, -quantia)
+        new_points = self.get_user_points(staff.id)
+
+        # Mostra a operação
+        current_role_id = self.get_highest_staff_role(staff)
+        
+        if current_role_id:
+            promotion_info = self.promotion_chains[current_role_id]
+            if not promotion_info.get("is_final"):
+                points_needed = promotion_info["points_needed"]
+                next_role_name = self.promotion_chains[promotion_info["next_role"]]["role_name"]
+                message = f"🔴 pontos removidos\npontos de {staff.mention} foram removidos!\npontos removidos: -{quantia}\npontos anteriores: {current_points}\npontos atuais: {new_points}\npróxima promoção: {next_role_name}: {new_points}/{points_needed} pontos"
+            else:
+                message = f"🔴 pontos removidos\npontos de {staff.mention} foram removidos!\npontos removidos: -{quantia}\npontos anteriores: {current_points}\npontos atuais: {new_points}"
+        else:
+            message = f"🔴 pontos removidos\npontos de {staff.mention} foram removidos!\npontos removidos: -{quantia}\npontos anteriores: {current_points}\npontos atuais: {new_points}"
+        
+        await interaction.response.send_message(message)
 
     @app_commands.command(
         name="pontos",
-        description="Visualiza os pontos de um staff"
+        description="visualiza os pontos de um staff"
     )
-    @app_commands.describe(staff="O staff para visualizar pontos (opcional)")
+    @app_commands.describe(staff="o staff para visualizar pontos (opcional)")
     async def view_points_command(
         self,
         interaction: discord.Interaction,
@@ -228,38 +262,21 @@ class StaffPromotion(commands.Cog):
         promotion_info = self.promotion_chains[current_role_id]
         role_name = promotion_info["role_name"]
 
-        embed = discord.Embed(
-            title=f"📊 pontos de {target.name}",
-            color=discord.Color.blue()
-        )
-        embed.add_field(name="cargo Atual", value=role_name, inline=False)
-        embed.add_field(name="pontos Totais", value=str(points), inline=False)
-
         if not promotion_info.get("is_final"):
             next_role_name = self.promotion_chains[promotion_info["next_role"]]["role_name"]
             points_needed = promotion_info["points_needed"]
             progress = min(points, points_needed)
             
-            embed.add_field(
-                name="próxima promoção",
-                value=f"{next_role_name}: {progress}/{points_needed} pontos",
-                inline=False
-            )
-            
             # Barra de progresso visual
             bar_length = 10
             filled = int((progress / points_needed) * bar_length)
             bar = "█" * filled + "░" * (bar_length - filled)
-            embed.add_field(name="progresso", value=f"`{bar}`", inline=False)
+            
+            message = f"📊 pontos de {target.name}\ncargo atual: {role_name}\npontos totais: {points}\npróxima promoção: {next_role_name}: {progress}/{points_needed} pontos\nprogresso: `{bar}`"
         else:
-            embed.add_field(
-                name="status",
-                value="⭐ cargo máximo atingido!",
-                inline=False
-            )
+            message = f"📊 pontos de {target.name}\ncargo atual: {role_name}\npontos totais: {points}\nstatus: ⭐ cargo máximo atingido!"
 
-        embed.set_thumbnail(url=target.display_avatar.url)
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(message)
 
     @app_commands.command(
         name="resetar_pontos",
@@ -282,17 +299,13 @@ class StaffPromotion(commands.Cog):
 
         self.set_user_points(staff.id, 0)
 
-        embed = discord.Embed(
-            title="🔄 pontos resetados",
-            description=f"os pontos de {staff.mention} foram resetados para 0!",
-            color=discord.Color.red()
-        )
-        await interaction.response.send_message(embed=embed)
+        message = f"🔄 pontos resetados\nos pontos de {staff.mention} foram resetados para 0!"
+        await interaction.response.send_message(message)
 
     @commands.Cog.listener()
     async def on_ready(self):
         """Evento quando o bot fica pronto"""
-        print(f"✅ Cog StaffPromotion carregado com sucesso!")
+        print(f"✅ cog staff promotion carregado com sucesso!")
 
 
 async def setup(bot):

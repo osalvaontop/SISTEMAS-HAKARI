@@ -68,10 +68,6 @@ async def tomate_core(channel, author, send):
     if isinstance(target, discord.Member) and is_staff(target):
         try:
             await selected_msg.add_reaction("🍅")
-
-            target_id = str(target.id)
-            tomate_hits[target_id] = tomate_hits.get(target_id, 0) + 1
-            save_tomates()
             
             await send(
                 "eta porra taquei nos staffs / gerentes do servidor, vou tomar ban nao ne administraçao"
@@ -117,10 +113,6 @@ async def tomate_core(channel, author, send):
         try:
             await selected_msg.add_reaction("🍅")
 
-            target_id = str(target.id)
-            tomate_hits[target_id] = tomate_hits.get(target_id, 0) + 1
-            save_tomates()
-
             if target.id == author.id:
                 await send(
                     f"{author.mention} tentou jogar um tomate e acabou acertando a si mesmo KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKJ"
@@ -144,6 +136,33 @@ async def tomate_core(channel, author, send):
 class Tomate(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        if str(payload.emoji) != "🍅":
+            return
+
+        if payload.user_id == self.bot.user.id:
+            return
+
+        channel = self.bot.get_channel(payload.channel_id)
+        if channel is None:
+            return
+
+        try:
+            message = await channel.fetch_message(payload.message_id)
+        except:
+            return
+
+        # quem levou tomate foi o autor da mensagem
+        target = message.author
+
+        if target.bot:
+            return
+
+        target_id = str(target.id)
+        tomate_hits[target_id] = tomate_hits.get(target_id, 0) + 1
+        save_tomates()
 
     @app_commands.command(
         name="ranking_tomate",

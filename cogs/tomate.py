@@ -14,21 +14,7 @@ STAFF_ROLES = {
 }
 
 COOLDOWN = 15 * 60  # 15 minutos
-tomate_hits = {}
-TOMATE_FILE = "tomate_ranking.json"
 
-
-def load_tomates():
-    global tomate_hits
-
-    if os.path.exists(TOMATE_FILE):
-        with open(TOMATE_FILE, "r", encoding="utf-8") as f:
-            tomate_hits = json.load(f)
-
-
-def save_tomates():
-    with open(TOMATE_FILE, "w", encoding="utf-8") as f:
-        json.dump(tomate_hits, f, indent=4)
 
 def is_staff(member: discord.Member):
     return any(role.id in STAFF_ROLES for role in member.roles)
@@ -136,78 +122,6 @@ async def tomate_core(channel, author, send):
 class Tomate(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-    @commands.Cog.listener()
-    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
-        if str(payload.emoji) != "🍅":
-            return
-
-        if payload.user_id == self.bot.user.id:
-            return
-
-        channel = self.bot.get_channel(payload.channel_id)
-        if channel is None:
-            return
-
-        try:
-            message = await channel.fetch_message(payload.message_id)
-        except:
-            return
-
-        # quem levou tomate foi o autor da mensagem
-        target = message.author
-
-        if target.bot:
-            return
-
-        target_id = str(target.id)
-        tomate_hits[target_id] = tomate_hits.get(target_id, 0) + 1
-        save_tomates()
-
-    @app_commands.command(
-        name="ranking_tomate",
-        description="Mostra o top 10 pessoas que mais tomaram tomate"
-    )
-    async def ranking_tomate(
-        self,
-        interaction: discord.Interaction
-    ):
-
-        if not tomate_hits:
-            await interaction.response.send_message(
-                "ninguém tomou tomate ainda 🍅"
-            )
-            return
-
-        ranking = sorted(
-            tomate_hits.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )[:10]
-
-        texto = "🍅 **TOP 10 MAIS TOMATADOS DO SERVIDOR** 🍅\n\n"
-
-        for pos, (user_id, quantidade) in enumerate(
-            ranking,
-            start=1
-        ):
-            user = interaction.guild.get_member(
-                int(user_id)
-            )
-
-            if user:
-                nome = user.mention
-            else:
-                nome = f"usuário `{user_id}`"
-
-            texto += (
-                f"**top {pos}** - {nome} tomou "
-                f"**{quantidade} tomates**\n"
-            )
-
-        await interaction.response.send_message(
-            texto
-        )
         
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):

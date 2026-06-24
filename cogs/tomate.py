@@ -146,7 +146,7 @@ class Tomate(commands.Cog):
             await message.remove_reaction(payload.emoji, user)
 
             await channel.send(
-                f"{user.mention} ê parceiro tira esse tomate de mim rei da cocada preta, só **EU** posso tacar tomates por aqui."
+                f"E RAPÁ {user.mention} TÁ ACHANDO QUE TU É O REI DA COCADA PRETA É? pode tirando esse tomte aí de mim bestão, só **EU** posso tacar tomates por aqui."
             )
 
         except discord.Forbidden:

@@ -199,5 +199,4 @@ class Tomate(commands.Cog):
 
 
 async def setup(bot):
-    load_tomates()
     await bot.add_cog(Tomate(bot))

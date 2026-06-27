@@ -22,9 +22,9 @@ status_list = [
 ]
 
 discord_status_list = [
-   "discord.Status.idle",
-   "discord.Status.dnd",
-   "discord.Status.online"
+   discord.Status.idle,
+   discord.Status.dnd,
+   discord.Status.online
 ]
 
 @tasks.loop(seconds=40)

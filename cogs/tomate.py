@@ -9,6 +9,10 @@ cooldowns = {}
 bloquear_tomates = False
 bot_owner_id_cache = None
 
+BOT_OWNER_ID = {
+    1344736884089426022 # Mattzaddas
+}
+
 STAFF_ROLES = {
     1500969290093039626,  # Gerente
     1513653295061798922   # Staff
@@ -202,7 +206,7 @@ class Tomate(commands.Cog):
         guild = self.bot.get_guild(payload.guild_id)
 
         if bloquear_tomates and guild is not None:
-            bot_owner = await is_bot_owner(self.bot, message.author.id)
+            bot_owner = await is_bot_owner(self.bot, BOT_OWNER_ID == message.author.id)
             server_owner = message.author.id == guild.owner_id
 
             if bot_owner or server_owner:
@@ -225,7 +229,7 @@ class Tomate(commands.Cog):
             await message.remove_reaction(payload.emoji, user)
 
             await channel.send(
-                f"E RAPÁ {user.mention} TÁ ACHANDO QUE TU É O REI DA COCADA PRETA É? pode tirando esse tomte aí de mim bestão, só **EU** posso tacar tomates por aqui."
+                f"sub5 {user.mention} tacando tomate no true mogger"
             )
 
         except discord.Forbidden:
@@ -299,7 +303,7 @@ class Tomate(commands.Cog):
             return
 
         is_server_owner = interaction.user.id == guild.owner_id
-        is_application_owner = await is_bot_owner(self.bot, interaction.user.id)
+        is_application_owner = await is_bot_owner(self.bot, interaction.user.id == BOT_OWNER_ID)
 
         if not is_server_owner and not is_application_owner:
             await interaction.response.send_message(

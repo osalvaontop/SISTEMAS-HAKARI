@@ -5,6 +5,11 @@ import json
 import os
 from datetime import datetime
 
+CARGO_STAFF = 1500969290093039626
+CARGO_SECRETARIA = 1513653295061798922
+
+cargos = [role.id for role in target.roles]
+
 class StaffPromotion(commands.Cog):
     """Sistema de promoção de staffs baseado em pontuação"""
     
@@ -152,7 +157,7 @@ class StaffPromotion(commands.Cog):
             return
 
         # Verifica se o staff tem cargo staff
-        if self.get_highest_staff_role(staff) is None:
+        if not CARGO_STAFF or CARGO_SECRETARIA in cargos:
             await interaction.response.send_message(
                 f"❌ {staff.mention} não possui um cargo de staff",
                 ephemeral=True
@@ -208,7 +213,7 @@ class StaffPromotion(commands.Cog):
         """Comando para remover pontos diretamente"""
         
         # Verificação de permissões - apenas líderes/admins podem usar
-        if not interaction.user.guild_permissions.administrator:
+        if not CARGO_SECRETARIA in cargos:
             await interaction.response.send_message(
                 "❌ você não tem permissão para usar este comando",
                 ephemeral=True
@@ -216,7 +221,7 @@ class StaffPromotion(commands.Cog):
             return
 
         # Verifica se o staff tem cargo staff
-        if self.get_highest_staff_role(staff) is None:
+        if CARGO_SECRETARIA or CARGO_STAFF not in cargos:
             await interaction.response.send_message(
                 f"❌ {staff.mention} não possui um cargo de staff",
                 ephemeral=True
@@ -259,10 +264,9 @@ class StaffPromotion(commands.Cog):
         target = staff or interaction.user
 
         # Verifica se tem cargo staff
-        current_role_id = self.get_highest_staff_role(target)
-        if current_role_id is None:
+        if CARGO_STAFF or CARGO_SECRETARIA not in cargos:
             await interaction.response.send_message(
-                f"❌ {target.mention} não possui um cargo de staff",
+                f"❌ {target.mention} não possui o cargo da staff ou da secretaria",
                 ephemeral=True
             )
             return
@@ -299,9 +303,9 @@ class StaffPromotion(commands.Cog):
     ):
         """Comando para resetar pontos (apenas admin)"""
         
-        if not interaction.user.guild_permissions.administrator:
+        if CARGO_SECRETARIA not in cargos:
             await interaction.response.send_message(
-                "❌ você não tem permissão para usar este comando!",
+                "❌ você não é da secretaria para usar esse comando.",
                 ephemeral=True
             )
             return

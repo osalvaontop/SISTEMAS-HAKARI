@@ -2,8 +2,9 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
-TICKET_IMAGE = "https://i.postimg.cc/ZRptsfK0/download-(2).gif"  # coloque a imagem depois
-SUPPORT_ROLE_ID = 1504998108407398501  # ID do cargo de suporte
+TICKET_IMAGE = "https://i.postimg.cc/ZRptsfK0/download-(2).gif"
+SUPPORT_ROLE_ID = 1504998108407398501
+
 
 class TicketView(discord.ui.View):
     def __init__(self):
@@ -11,40 +12,43 @@ class TicketView(discord.ui.View):
 
     @discord.ui.button(label="abrir ticket", style=discord.ButtonStyle.green, emoji="🎫")
     async def ticket_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-    await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
 
         guild = interaction.guild
 
-        existing = discord.utils.get(guild.text_channels, name=f"ticket-{interaction.user.name}")
+        existing = discord.utils.get(
+            guild.text_channels,
+            name=f"ticket-{interaction.user.name}".lower()
+        )
 
         if existing:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "você já possui um ticket aberto",
                 ephemeral=True
             )
             return
 
-        # Obter o cargo de suporte
         support_role = guild.get_role(SUPPORT_ROLE_ID)
 
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             interaction.user: discord.PermissionOverwrite(
                 view_channel=True,
-                send_messages=True
+                send_messages=True,
+                read_message_history=True
             )
         }
-        
-        # Adicionar permissão de ver canal para o cargo de suporte
+
         if support_role:
             overwrites[support_role] = discord.PermissionOverwrite(
                 view_channel=True,
                 send_messages=True,
-                manage_messages=True
+                manage_messages=True,
+                read_message_history=True
             )
 
         channel = await guild.create_text_channel(
-            name=f"ticket-{interaction.user.name}",
+            name=f"ticket-{interaction.user.name}".lower(),
             overwrites=overwrites,
             description=f"ID do usuário: {interaction.user.id}"
         )
@@ -58,8 +62,9 @@ class TicketView(discord.ui.View):
             color=0xffffff
         )
         embed.set_image(url="https://i.postimg.cc/MGv7qV15/download-(1).gif")
-        # Mencionar o cargo de suporte
+
         mention_text = interaction.user.mention
+
         if support_role:
             mention_text += f" {support_role.mention}"
 
@@ -72,6 +77,7 @@ class TicketView(discord.ui.View):
             f"seu ticket foi criado: {channel.mention}",
             ephemeral=True
         )
+
 
 class CloseTicketView(discord.ui.View):
     def __init__(self, channel):
@@ -90,25 +96,27 @@ class CloseTicketView(discord.ui.View):
             description="ticket não será fechado",
             color=discord.Color.red()
         )
+        embed.set_footer(
+            text="se tu quiser fechar ele agora é só rodar o mesmo comando e clicar em confirmar"
+        )
+
         await interaction.response.send_message(embed=embed, ephemeral=True)
         self.stop()
-        embed.set_footer(text="se tu quiser fechar ele agora é só rodar o mesmo comando e clicar em confirmar")
+
 
 class Tickets(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # ===== PAINEL COMMAND =====
     @commands.command(name="painel")
     @commands.has_permissions(administrator=True)
     async def painel_prefix(self, ctx):
-        """Envia o painel de tickets (prefixo)"""
         embed = discord.Embed(
             title=".",
             description=(
-                "ㅤㅤㅤㅤㅤㅤ__ ***boas vindas ao sistema de tickets!***__\n\n"
-                "ㅤㅤㅤㅤㅤㅤㅤㅤㅤ__***aqui você pode ter o seu suporte envolvendo coisa o servidor.***___\n\n"
-                "ㅤㅤㅤ__***sinta-se a vontade para ser atendido pela equipe***__"
+                "ㅤㅤㅤㅤㅤㅤ__***boas vindas ao sistema de tickets!***__\n\n"
+                "ㅤㅤㅤㅤㅤㅤㅤㅤㅤ__***aqui você pode ter o seu suporte envolvendo coisas do servidor.***__\n\n"
+                "ㅤㅤㅤ__***sinta-se à vontade para ser atendido pela equipe.***__"
             ),
             color=0xffffff
         )
@@ -121,7 +129,6 @@ class Tickets(commands.Cog):
     @app_commands.command(name="painel", description="Envia o painel de tickets")
     @app_commands.checks.has_permissions(administrator=True)
     async def painel_slash(self, interaction: discord.Interaction):
-        """Envia o painel de tickets (slash)"""
         embed = discord.Embed(
             title="🎫 sistema de tickets",
             description="clique no botão abaixo para abrir um ticket",
@@ -133,11 +140,8 @@ class Tickets(commands.Cog):
 
         await interaction.response.send_message(embed=embed, view=TicketView())
 
-    # ===== FECHAR COMMAND =====
     @commands.command(name="fechar")
     async def fechar_prefix(self, ctx):
-        """Comando para fechar um ticket (prefixo)"""
-        # Verificar se é um canal de ticket
         if not ctx.channel.name.startswith("ticket-"):
             embed = discord.Embed(
                 title="❌ erro",
@@ -147,10 +151,8 @@ class Tickets(commands.Cog):
             await ctx.send(embed=embed)
             return
 
-        # Obter o cargo de suporte
         support_role = ctx.guild.get_role(SUPPORT_ROLE_ID)
-        
-        # Verificar se o usuário tem o cargo de suporte
+
         if support_role not in ctx.author.roles:
             embed = discord.Embed(
                 title="❌ epa pera aí amigão",
@@ -160,7 +162,6 @@ class Tickets(commands.Cog):
             await ctx.send(embed=embed)
             return
 
-        # Criar embed de confirmação
         embed = discord.Embed(
             title="⚠️ confirmação de fechamento",
             description="quer mesmo fechar este ticket?",
@@ -171,8 +172,6 @@ class Tickets(commands.Cog):
 
     @app_commands.command(name="fechar", description="Fecha um ticket")
     async def fechar_slash(self, interaction: discord.Interaction):
-        """Comando para fechar um ticket (slash)"""
-        # Verificar se é um canal de ticket
         if not interaction.channel.name.startswith("ticket-"):
             embed = discord.Embed(
                 title="❌ erro",
@@ -182,27 +181,29 @@ class Tickets(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
-        # Obter o cargo de suporte
         support_role = interaction.guild.get_role(SUPPORT_ROLE_ID)
-        
-        # Verificar se o usuário tem o cargo de suporte
+
         if support_role not in interaction.user.roles:
             embed = discord.Embed(
-                title="❌ pera aí meu negão",
+                title="❌ pera aí",
                 description="só administradores podem fechar o ticket",
                 color=discord.Color.red()
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
-        # Criar embed de confirmação
         embed = discord.Embed(
             title="⚠️ confirmação de fechamento",
             description="tem certeza que deseja fechar este ticket?",
             color=discord.Color.yellow()
         )
 
-        await interaction.response.send_message(embed=embed, view=CloseTicketView(interaction.channel), ephemeral=True)
+        await interaction.response.send_message(
+            embed=embed,
+            view=CloseTicketView(interaction.channel),
+            ephemeral=True
+        )
+
 
 async def setup(bot):
     await bot.add_cog(Tickets(bot))

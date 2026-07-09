@@ -91,7 +91,7 @@ class CloseTicketView(discord.ui.View):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
         self.stop()
-        embed.set_footer("se tu quiser fechar ele agora é só rodar o mesmo comando e clicar em confirmar")
+        embed.set_footer(text="se tu quiser fechar ele agora é só rodar o mesmo comando e clicar em confirmar")
 
 class Tickets(commands.Cog):
     def __init__(self, bot):
@@ -141,10 +141,9 @@ class Tickets(commands.Cog):
             embed = discord.Embed(
                 title="❌ erro",
                 description="este comando só pode ser usado em canais de ticket",
-                color=discord.Color.red(),
-
+                color=discord.Color.red()
             )
-            await ctx.send(embed=embed, ephemeral=True)
+            await ctx.send(embed=embed)
             return
 
         # Obter o cargo de suporte
@@ -157,7 +156,7 @@ class Tickets(commands.Cog):
                 description="só administradores podem fechar o ticket",
                 color=discord.Color.red()
             )
-            await ctx.send(embed=embed, ephemeral=True)
+            await ctx.send(embed=embed)
             return
 
         # Criar embed de confirmação
@@ -167,7 +166,7 @@ class Tickets(commands.Cog):
             color=discord.Color.yellow()
         )
 
-        await ctx.send(embed=embed, view=CloseTicketView(ctx.channel), ephemeral=True)
+        await ctx.send(embed=embed, view=CloseTicketView(ctx.channel))
 
     @app_commands.command(name="fechar", description="Fecha um ticket")
     async def fechar_slash(self, interaction: discord.Interaction):
@@ -191,7 +190,6 @@ class Tickets(commands.Cog):
                 title="❌ pera aí meu negão",
                 description="só administradores podem fechar o ticket",
                 color=discord.Color.red()
-
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return

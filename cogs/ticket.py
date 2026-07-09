@@ -52,8 +52,8 @@ class TicketView(discord.ui.View):
         embed = discord.Embed(
             title="ticket aberto",
             description=(
-                "ㅤㅤㅤㅤㅤㅤㅤㅤㅤ__***boas vindas ao seu ticket!***__\n"
-                "ㅤㅤㅤ__***explique o motivo do seu ticket abaixo, enquanto aguarda.***__"
+                "ㅤㅤㅤㅤㅤㅤㅤㅤ  ㅤ__***boas vindas ao seu ticket!***__\n"
+                "ㅤㅤㅤ__***explique o motivo do seu ticket abaixo, enquanto aguarda a equipe.***__"
             ),
             color=0xffffff
         )
@@ -107,8 +107,8 @@ class Tickets(commands.Cog):
             title=".",
             description=(
                 "ㅤㅤㅤㅤㅤㅤ__ ***boas vindas ao sistema de tickets!***__\n\n"
-                "ㅤㅤㅤㅤㅤㅤㅤㅤㅤ__***aqui você pode tirar várias dúvidas que você tem sobre o nosso servidor.***___\n\n"
-                "ㅤㅤㅤ__***sinta-se a vontade para ser atendido por um dos nossos staffs***__"
+                "ㅤㅤㅤㅤㅤㅤㅤㅤㅤ__***aqui você pode ter o seu suporte envolvendo coisa o servidor.***___\n\n"
+                "ㅤㅤㅤ__***sinta-se a vontade para ser atendido pela equipe***__"
             ),
             color=0xffffff
         )

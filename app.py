@@ -10,15 +10,16 @@ from discord.ext import tasks
 
 status_list = [
     "dis.gg/ccdv | /help",
-    "hakari versão 1.4.2",
+    "hakari v2.9.0",
     "feito por mattzaddas",
-    "marrocos 1 a 1 brasil kkkkkkkkkkkkkkkkkkkkj",
+    "PORRA NORUEGA ESTUDOU O BRASIL",
     "meu prefixo é uma virgula ok",
     "six seven da silva bora bill",
     "pô man, as vezes cansa ser bot",
     "eu fico 24/7 com o uptime robot toda hora falando BORA TRABALHAR no meu http de monitoramento sabia",
     "NÃO, ERRO 429 DE NOVO NÃO POR FAVOR DEUS😭😭😭😭😭😭😭😭😭",
-    "porra um dia eu fui apagado por inteiro porque o matt quis mudar de python pra javascript, que merda em"
+    "porra um dia eu fui apagado por inteiro porque o matt quis mudar de python pra javascript, que merda em",
+    "ok, pelo visto acabei de tomar um jumpscare do erro 429 e fiquei off por 6 dias."
 ]
 
 discord_status_list = [

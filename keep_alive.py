@@ -54,224 +54,366 @@ def home():
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Status do Hakari</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Status do Hakari</title>
 
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-        body {
-            min-height: 100vh;
-            background:
-                radial-gradient(circle at top, #173d2d 0%, transparent 35%),
-                linear-gradient(135deg, #080808, #111111);
-            color: white;
-            font-family: Arial, Helvetica, sans-serif;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 25px;
-        }
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-        .card {
-            width: 100%;
-            max-width: 620px;
-            background: rgba(27, 27, 27, 0.92);
-            border: 1px solid rgba(0, 255, 153, 0.25);
-            border-radius: 22px;
-            padding: 32px;
-            box-shadow: 0 0 35px rgba(0, 255, 153, 0.18);
-            backdrop-filter: blur(10px);
-            animation: fadeIn 0.7s ease;
-        }
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(0, 255, 214, 0.18), transparent 30%),
+        radial-gradient(circle at right, rgba(255, 196, 87, 0.10), transparent 28%),
+        linear-gradient(135deg, #071119, #071016 55%, #11120d);
+      color: #f5f5f0;
+      font-family: "Inter", sans-serif;
+      padding: 28px;
+    }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(18px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+    .page {
+      max-width: 944px;
+      margin: auto;
+    }
 
-        h1 {
-            font-size: clamp(1.8rem, 5vw, 2.5rem);
-            margin-bottom: 8px;
-            color: #00ff99;
-        }
+    .top {
+      display: grid;
+      grid-template-columns: 1.55fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
 
-        .subtitle {
-            color: #aaa;
-            margin-bottom: 26px;
-            font-size: 0.95rem;
-        }
+    .hero, .panel, .main-card {
+      background: rgba(8, 18, 25, 0.78);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      border-radius: 24px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(16px);
+    }
 
-        .info {
-            background: #222;
-            margin: 14px 0;
-            padding: 16px 18px;
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            transition: 0.25s ease;
-            border: 1px solid transparent;
-        }
+    .hero {
+      padding: 36px 28px 30px;
+    }
 
-        .info:hover {
-            transform: translateY(-3px) scale(1.01);
-            border-color: rgba(0, 255, 153, 0.35);
-            background: #282828;
-            box-shadow: 0 8px 22px rgba(0, 255, 153, 0.12);
-        }
+    .eyebrow {
+      color: #4eead4;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
 
-        .label {
-            color: #ddd;
-            font-weight: bold;
-        }
+    h1 {
+      font-size: clamp(4rem, 9vw, 5.2rem);
+      line-height: 0.9;
+      letter-spacing: -0.08em;
+      margin-bottom: 24px;
+    }
 
-        .value {
-            text-align: right;
-            font-weight: 600;
-        }
+    .desc {
+      color: #a8b8c7;
+      line-height: 1.7;
+      font-size: 0.93rem;
+      max-width: 520px;
+    }
 
-        .ping {
-            display: block;
-            font-size: 0.8rem;
-            color: #999;
-            margin-top: 3px;
-        }
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 24px;
+    }
 
-        .green { color: #00ff99; }
-        .yellow { color: #ffd500; }
-        .red { color: #ff4d4d; }
-        .gray { color: #aaa; }
+    .feature, .status-box, .mini-card {
+      background: rgba(255, 255, 255, 0.045);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 16px 14px;
+    }
 
-        .status-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            background: #00ff99;
-            border-radius: 50%;
-            margin-right: 7px;
-            box-shadow: 0 0 12px #00ff99;
-        }
+    .feature strong {
+      display: block;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+    }
 
-        .footer {
-            margin-top: 24px;
-            color: #888;
-            font-size: 0.9rem;
-            text-align: center;
-        }
+    .feature p, .panel p, .mini-card p {
+      color: #a9bac9;
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
 
-        @media (max-width: 520px) {
-            body {
-                padding: 16px;
-                align-items: flex-start;
-                padding-top: 35px;
-            }
+    .panel {
+      padding: 22px;
+    }
 
-            .card {
-                padding: 24px 18px;
-                border-radius: 18px;
-            }
+    .status-box {
+      color: #f5f5f0;
+      margin: 16px 0;
+      line-height: 1.45;
+      font-size: 0.88rem;
+    }
 
-            .info {
-                flex-direction: column;
-                align-items: flex-start;
-            }
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin: 18px 0 22px;
+    }
 
-            .value {
-                text-align: left;
-            }
-        }
-    </style>
+    .tab {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.045);
+      color: #f5f5f0;
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .tab.active {
+      border-color: rgba(245, 197, 91, 0.7);
+      background: rgba(245, 197, 91, 0.10);
+    }
+
+    .main-card {
+      padding: 28px 22px 22px;
+    }
+
+    .main-head {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 26px;
+    }
+
+    h2 {
+      font-size: clamp(2.2rem, 5vw, 3rem);
+      line-height: 0.95;
+      letter-spacing: -0.06em;
+      margin-top: 8px;
+    }
+
+    .status-area {
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 16px;
+    }
+
+    .live-box {
+      background: rgba(255, 255, 255, 0.045);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 16px;
+      min-height: 170px;
+    }
+
+    .live-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .badge {
+      color: #4eead4;
+      background: rgba(45, 212, 191, 0.12);
+      padding: 9px 13px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .new {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      padding: 11px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      color: #a9bac9;
+      font-size: 0.9rem;
+    }
+
+    .value {
+      color: #f5f5f0;
+      font-weight: 700;
+    }
+
+    .green {
+      color: #4eead4;
+    }
+
+    .red {
+      color: #ff6b6b;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 22px;
+      color: #667788;
+      font-size: 0.75rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 760px) {
+      .top, .main-head, .status-area {
+        grid-template-columns: 1fr;
+      }
+
+      .features {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 3.7rem;
+      }
+    }
+  </style>
 </head>
 
 <body>
-    <main class="card">
-        <h1>página de host do hakari</h1>
-        <p class="subtitle">
-            informações públicas da hospedagem e conexão do bot, e é claro que informações confidenciais como o TOKEN não vão ser exibidas aqui, seu maluco caloteiro sem pai sem mãe mendigo vagabundo babaca zé cagão
+  <div class="page">
+    <section class="top">
+      <div class="hero">
+        <div class="eyebrow">HAKARI BOT feito pelo Mattzadas | Sempre online para entreter o seu servidor. </div>
+        <h1>HAKARI</h1>
+        <p class="desc">
+          O HAKARI é um bot do Discord criado pelo Matt em Python, com foco em moderação, utilidades, automação e entretenimento. Conhecido por ser o famoso bot do comando /tomate.
         </p>
 
-        <section class="info">
-            <span class="label">status</span>
-            <span class="value green">
-                <span class="status-dot"></span>Online
-            </span>
-        </section>
+        <div class="features">
+          <div class="feature">
+            <strong>Propósito</strong>
+            <p>Seu propósito é ser um bot do Discord pra entreter e criar coisas que nenhum outro bot tem.</p>
+          </div>
 
-        <section class="info">
-            <span class="label">uptime</span>
-            <span class="value" id="uptime">carregando...</span>
-        </section>
+          <div class="feature">
+            <strong>Status</strong>
+            <p>Atualmente Online 24/7 por UptimeRobot + Render.</p>
+          </div>
 
-        <section class="info">
-            <span class="label">gateway discord</span>
-            <span class="value gray" id="gateway">
-                carregando...
-                <small class="ping" id="ping">carregando...</small>
-            </span>
-        </section>
+          <div class="feature">
+            <strong>Desenvolvedor</strong>
+            <p>Matt é um garoto de 15 anos, obcecado por criar bots igual ao HAKARI. Sempre inteligente pra criar novas funcionalidades e paciente caso o erro 429(Rate Limit) venha novamente.</p>
+          </div>
+        </div>
+      </div>
 
-        <section class="info">
-            <span class="label">hospedagem</span>
-            <span class="value">Render</span>
-        </section>
+      <aside class="panel">
+        <div class="eyebrow">Mais sobre o HAKARI</div>
 
-        <section class="info">
-            <span class="label">monitoramento 24/7</span>
-            <span class="value">UptimeRobot</span>
-        </section>
+        <div class="status-box" id="statusMessage">
+          Mantido com atualizações constantes e otimizado para alta disponibilidade, o Hakari foi projetado para facilitar a administração de servidores enquanto oferece uma experiência moderna e intuitiva para administradores e membros. Mais do que um simples bot, ele é o resultado de dedicação, criatividade e centenas de horas de desenvolvimento contínuo.
+        </div>
+      </aside>
+    </section>
 
-        <section class="info">
-            <span class="label">API discord</span>
-            <span class="value" id="apiPing">carregando...</span>
-        </section>
+    <main class="main-card">
+      <div class="main-head">
+        <div>
+          <div class="eyebrow">Informações de Host</div>
+          <h2>Saiba o que faz o HAKARI continuar vivo.</h2>
+        </div>
 
-        <section class="info">
-            <span class="label">port</span>
-            <span class="value" id="port">carregando...</span>
-        </section>
-
-        <p class="footer">
-            página de status do hakari | um bot feito pelo salva
+        <p class="desc">
+          Essas informações as vezes dão erros e não conseguem obter a informação correta. Cuidado.
         </p>
+      </div>
+
+      <section class="status-area">
+        <div class="live-box">
+          <div class="live-top">
+            <span class="badge">INFORMAÇÕES</span>
+          </div>
+
+          <div class="row">
+            <span>Status</span>
+            <span class="value green" id="status">Online 24/7</span>
+          </div>
+
+          <div class="row">
+            <span>Uptime</span>
+            <span class="value" id="uptime">Carregando...</span>
+          </div>
+
+          <div class="row">
+            <span>Gateway Discord</span>
+            <span class="value" id="gateway">Carregando...</span>
+          </div>
+
+          <div class="row">
+            <span>Ping</span>
+            <span class="value" id="ping">Carregando...</span>
+          </div>
+
+          <div class="row">
+            <span>Porta</span>
+            <span class="value" id="port">Carregando...</span>
+          </div>
+        </div>
+
+        <div class="mini-card">
+          <div class="eyebrow">Como usar</div>
+          <h3>Pra que essa página?</h3>
+          <p>
+            A Página de Host do Hakari é um painel público que exibe informações em tempo real sobre a hospedagem e o funcionamento do bot. Nela é possível acompanhar dados como status, uptime, conexão com o Gateway do Discord, latência da API, porta utilizada e outros detalhes técnicos, sempre preservando informações confidenciais como tokens, chaves e credenciais. O objetivo é oferecer transparência sobre a disponibilidade do Hakari sem comprometer sua segurança.
+          </p>
+        </div>
+      </section>
+
+      <footer class="footer">
+        Página de Status do Hakari • Um bot feito pelo Matt
+      </footer>
     </main>
+  </div>
 
-    <script>
-        async function updateStatus() {
-            try {
-                const response = await fetch("/api/status");
-                const data = await response.json();
+  <script>
+    async function updateStatus() {
+      try {
+        const response = await fetch("/api/status");
+        const data = await response.json();
 
-                document.getElementById("uptime").textContent = data.uptime;
-                document.getElementById("ping").textContent = data.ping + " ms";
-                document.getElementById("apiPing").textContent = data.ping + " ms";
-                document.getElementById("port").textContent = data.port;
+        document.getElementById("statusMessage").textContent =
+          "Status carregado com sucesso. Hakari está respondendo normalmente.";
 
-                const gateway = document.getElementById("gateway");
-                gateway.className = "value " + data.gateway_class;
-                gateway.firstChild.textContent = data.gateway_status;
-            } catch {
-                document.getElementById("gateway").className = "value red";
-                document.getElementById("gateway").firstChild.textContent = "Erro";
-                document.getElementById("ping").textContent = "Falha ao atualizar";
-            }
-        }
+        document.getElementById("uptime").textContent = data.uptime || "Indisponível";
+        document.getElementById("ping").textContent = data.ping ? data.ping + " ms" : "Indisponível";
+        document.getElementById("port").textContent = data.port || "Indisponível";
 
-        updateStatus();
-        setInterval(updateStatus, 5000);
-    </script>
+        const gateway = document.getElementById("gateway");
+        gateway.textContent = data.gateway_status || "Indisponível";
+        gateway.className = "value " + (data.gateway_class || "");
+
+      }
+
+        document.getElementById("gateway").textContent = "Erro de conexão";
+        document.getElementById("gateway").className = "value red";
+        document.getElementById("ping").textContent = "Falha";
+      }
+    }
+
+    updateStatus();
+    setInterval(updateStatus, 5000);
+  </script>
 </body>
 </html>
 """

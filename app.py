@@ -45,44 +45,44 @@ class HakariBot(commands.Bot):
             application_id=int(APPLICATION_ID)
         )
 
-    async def setup_hook(self):
-    print("🔧 setup_hook iniciado.", flush=True)
+        async def setup_hook(self):
+            print("🔧 setup_hook iniciado.", flush=True)
 
-    try:
-        await self.load_cogs()
-    except Exception as erro:
-        print(
-            f"❌ Erro geral ao carregar cogs: "
-            f"{type(erro).__name__}: {erro}",
-            flush=True
-        )
+            try:
+                await self.load_cogs()
+            except Exception as erro:
+                print(
+                    f"❌ Erro geral ao carregar cogs: "
+                    f"{type(erro).__name__}: {erro}",
+                    flush=True
+                )
 
-    print(
-        f"📦 Cogs atualmente carregadas: {list(self.cogs.keys())}",
-        flush=True
-    )
+            print(
+                f"📦 Cogs atualmente carregadas: {list(self.cogs.keys())}",
+                flush=True
+            )
 
-    try:
-        guild = discord.Object(id=GUILD_ID)
+            try:
+                guild = discord.Object(id=GUILD_ID)
 
-        comandos_servidor = await self.tree.sync(guild=guild)
-        print(
-            f"✅ {len(comandos_servidor)} comandos sincronizados no servidor.",
-            flush=True
-        )
+                comandos_servidor = await self.tree.sync(guild=guild)
+            print(
+                f"✅ {len(comandos_servidor)} comandos sincronizados no servidor.",
+                flush=True
+            )
 
-        comandos_globais = await self.tree.sync()
-        print(
-            f"✅ {len(comandos_globais)} comandos globais sincronizados.",
-            flush=True
-        )
+            comandos_globais = await self.tree.sync()
+            print(
+                f"✅ {len(comandos_globais)} comandos globais sincronizados.",
+                flush=True
+            )
 
-    except Exception as erro:
-        print(
-            f"❌ Erro ao sincronizar comandos: "
-            f"{type(erro).__name__}: {erro}",
-            flush=True
-        )
+        except Exception as erro:
+            print(
+                f"❌ Erro ao sincronizar comandos: "
+                f"{type(erro).__name__}: {erro}",
+                flush=True
+            )
 
     async def load_cogs(self):
     cogs_dir = os.path.join(os.path.dirname(__file__), "cogs")

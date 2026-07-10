@@ -3,6 +3,8 @@ import random
 import sqlite3
 import time
 from pathlib import Path
+from datetime import datetime, timedelta
+from enum import Enum
 
 import discord
 from discord import app_commands
@@ -25,6 +27,50 @@ MAX_TRANSACTION = 500_000_000_000_000
 DAILY_COOLDOWN_SECONDS = 24 * 60 * 60
 
 DATABASE_PATH = Path("data") / "economia.db"
+
+# Configurações de empregos
+WORK_COOLDOWN_SECONDS = 15 * 60  # 15 minutos
+FAILED_INTERVIEW_COOLDOWN_SECONDS = 24 * 60 * 60  # 24 horas
+MONTHLY_CYCLE_SECONDS = 30 * 24 * 60 * 60  # 30 dias
+
+# Dados dos empregos
+class JobData(Enum):
+    # (nome, salário mensal, chance de aprovação, meta mensal)
+    ESTAGIARIO = ("Estagiário", 800, 0.90, 40)
+    ENTREGADOR = ("Entregador", 1200, 0.80, 50)
+    FAXINEIRO = ("Faxineiro", 1500, 0.80, 60)
+    GARCOM = ("Garçom", 1800, 0.60, 70)
+    ATENDENTE = ("Atendente", 2200, 0.50, 70)
+    MOTORISTA = ("Motorista", 2800, 0.45, 70)
+    MECANICO = ("Mecânico", 3500, 0.45, 70)
+    PROGRAMADOR_JUNIOR = ("Programador Júnior", 4500, 0.45, 70)
+    POLICIAL = ("Policial", 5000, 0.30, 80)
+    BOMBEIRO = ("Bombeiro", 5500, 0.30, 80)
+    ENFERMEIRO = ("Enfermeiro", 6000, 0.30, 80)
+    PROFESSOR = ("Professor", 6500, 0.25, 95)
+    DESENVOLVEDOR = ("Desenvolvedor", 8000, 0.15, 100)
+    ADVOGADO = ("Advogado", 9000, 0.10, 150)
+    MEDICO = ("Médico", 12000, 0.10, 150)
+    EMPRESARIO = ("Empresário", 18000, 0.10, 150)
+    CEO = ("CEO", 30000, 0.10, 150)
+
+    def get_name(self):
+        return self.value[0]
+
+    def get_salary(self):
+        return self.value[1]
+
+    def get_approval_chance(self):
+        return self.value[2]
+
+    def get_monthly_goal(self):
+        return self.value[3]
+
+
+class JobStatus(Enum):
+    ATIVO = "ativo"
+    AFASTADO = "afastado"
+    DEMITIDO = "demitido"
 
 
 # ============================================================
@@ -60,6 +106,27 @@ class EconomyDatabase:
                     user_id INTEGER NOT NULL,
                     balance INTEGER NOT NULL DEFAULT 0 CHECK(balance >= 0),
                     last_daily INTEGER,
+                    PRIMARY KEY (guild_id, user_id)
+                )
+                """
+            )
+
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS jobs (
+                    guild_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    job_name TEXT NOT NULL,
+                    salary INTEGER NOT NULL,
+                    monthly_goal INTEGER NOT NULL,
+                    work_count INTEGER NOT NULL DEFAULT 0,
+                    hire_date INTEGER NOT NULL,
+                    cycle_start_date INTEGER NOT NULL,
+                    next_payment_date INTEGER NOT NULL,
+                    last_work_date INTEGER,
+                    robbery_count INTEGER NOT NULL DEFAULT 0,
+                    suspension_end_date INTEGER,
+                    status TEXT NOT NULL DEFAULT 'ativo',
                     PRIMARY KEY (guild_id, user_id)
                 )
                 """
@@ -312,6 +379,289 @@ class EconomyDatabase:
                     connection.execute("ROLLBACK")
                     raise
 
+    # ======================== JOBS METHODS ========================
+
+    async def get_job(self, guild_id: int, user_id: int) -> dict | None:
+        """Retorna as informações do emprego do usuário"""
+        async with self.lock:
+            with self._connect() as connection:
+                row = connection.execute(
+                    """
+                    SELECT * FROM jobs
+                    WHERE guild_id = ? AND user_id = ?
+                    """,
+                    (guild_id, user_id),
+                ).fetchone()
+
+                return dict(row) if row else None
+
+    async def hire_employee(
+        self,
+        guild_id: int,
+        user_id: int,
+        job_data: JobData,
+    ) -> bool:
+        """Contrata um usuário para um emprego"""
+        now = int(time.time())
+        next_payment = now + MONTHLY_CYCLE_SECONDS
+
+        async with self.lock:
+            with self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+
+                try:
+                    # Verifica se o usuário já possui um emprego
+                    existing_job = connection.execute(
+                        """
+                        SELECT job_name FROM jobs
+                        WHERE guild_id = ? AND user_id = ?
+                        """,
+                        (guild_id, user_id),
+                    ).fetchone()
+
+                    if existing_job is not None:
+                        connection.execute("ROLLBACK")
+                        return False
+
+                    connection.execute(
+                        """
+                        INSERT INTO jobs (
+                            guild_id, user_id, job_name, salary, monthly_goal,
+                            hire_date, cycle_start_date, next_payment_date, status
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            guild_id,
+                            user_id,
+                            job_data.get_name(),
+                            job_data.get_salary(),
+                            job_data.get_monthly_goal(),
+                            now,
+                            now,
+                            next_payment,
+                            JobStatus.ATIVO.value,
+                        ),
+                    )
+
+                    connection.execute("COMMIT")
+                    return True
+
+                except Exception:
+                    connection.execute("ROLLBACK")
+                    raise
+
+    async def work(self, guild_id: int, user_id: int) -> tuple[bool, str]:
+        """Registra um trabalho para o usuário"""
+        now = int(time.time())
+
+        async with self.lock:
+            with self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+
+                try:
+                    job = connection.execute(
+                        """
+                        SELECT * FROM jobs
+                        WHERE guild_id = ? AND user_id = ?
+                        """,
+                        (guild_id, user_id),
+                    ).fetchone()
+
+                    if job is None:
+                        connection.execute("ROLLBACK")
+                        return False, "você não possui um emprego. use `/entrevista` para participar de uma."
+
+                    # Verifica se está afastado
+                    if job["status"] == JobStatus.AFASTADO.value:
+                        if job["suspension_end_date"] and now < job["suspension_end_date"]:
+                            connection.execute("ROLLBACK")
+                            return False, f"você está afastado até <t:{job['suspension_end_date']}:f>."
+
+                        # Remove o afastamento
+                        connection.execute(
+                            """
+                            UPDATE jobs
+                            SET status = ?, suspension_end_date = NULL
+                            WHERE guild_id = ? AND user_id = ?
+                            """,
+                            (JobStatus.ATIVO.value, guild_id, user_id),
+                        )
+
+                    # Verifica cooldown de 15 minutos
+                    if job["last_work_date"] is not None:
+                        next_work_time = job["last_work_date"] + WORK_COOLDOWN_SECONDS
+                        if now < next_work_time:
+                            connection.execute("ROLLBACK")
+                            return False, f"você poderá trabalhar novamente em <t:{next_work_time}:R>."
+
+                    # Verifica se atingiu a meta mensal
+                    if job["work_count"] >= job["monthly_goal"]:
+                        connection.execute("ROLLBACK")
+                        return False, f"você já atingiu a meta mensal de {job['monthly_goal']} trabalhos."
+
+                    # Atualiza o progresso
+                    new_work_count = job["work_count"] + 1
+
+                    connection.execute(
+                        """
+                        UPDATE jobs
+                        SET work_count = ?, last_work_date = ?
+                        WHERE guild_id = ? AND user_id = ?
+                        """,
+                        (new_work_count, now, guild_id, user_id),
+                    )
+
+                    connection.execute("COMMIT")
+                    return True, f"você trabalhou com sucesso! progresso: {new_work_count}/{job['monthly_goal']}"
+
+                except Exception:
+                    connection.execute("ROLLBACK")
+                    raise
+
+    async def pay_salary(self, guild_id: int, user_id: int) -> tuple[bool, int]:
+        """Processa o pagamento mensal"""
+        now = int(time.time())
+        next_payment = now + MONTHLY_CYCLE_SECONDS
+
+        async with self.lock:
+            with self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+
+                try:
+                    job = connection.execute(
+                        """
+                        SELECT * FROM jobs
+                        WHERE guild_id = ? AND user_id = ?
+                        """,
+                        (guild_id, user_id),
+                    ).fetchone()
+
+                    if job is None:
+                        connection.execute("ROLLBACK")
+                        return False, 0
+
+                    # Calcula o salário
+                    if job["work_count"] >= job["monthly_goal"]:
+                        salary_earned = job["salary"]
+                    else:
+                        salary_earned = int(job["salary"] * job["work_count"] / job["monthly_goal"])
+
+                    # Adiciona o dinheiro
+                    self._ensure_account(connection, guild_id, user_id)
+                    connection.execute(
+                        """
+                        UPDATE economy
+                        SET balance = balance + ?
+                        WHERE guild_id = ? AND user_id = ?
+                        """,
+                        (salary_earned, guild_id, user_id),
+                    )
+
+                    # Reseta o ciclo mensal
+                    connection.execute(
+                        """
+                        UPDATE jobs
+                        SET work_count = 0, cycle_start_date = ?, next_payment_date = ?
+                        WHERE guild_id = ? AND user_id = ?
+                        """,
+                        (now, next_payment, guild_id, user_id),
+                    )
+
+                    connection.execute("COMMIT")
+                    return True, salary_earned
+
+                except Exception:
+                    connection.execute("ROLLBACK")
+                    raise
+
+    async def add_suspension(self, guild_id: int, user_id: int) -> tuple[bool, int]:
+        """Adiciona uma suspensão progressiva ao usuário"""
+        async with self.lock:
+            with self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+
+                try:
+                    job = connection.execute(
+                        """
+                        SELECT * FROM jobs
+                        WHERE guild_id = ? AND user_id = ?
+                        """,
+                        (guild_id, user_id),
+                    ).fetchone()
+
+                    if job is None:
+                        connection.execute("ROLLBACK")
+                        return False, 0
+
+                    now = int(time.time())
+                    robbery_count = job["robbery_count"] + 1
+
+                    # Tabela de punições
+                    suspension_days = {
+                        1: 5,
+                        2: 10,
+                        3: 15,
+                        4: 20,
+                        5: 25,
+                        6: 30,
+                        7: None,  # Demissão
+                    }
+
+                    if robbery_count == 7:
+                        # Demissão
+                        connection.execute(
+                            """
+                            UPDATE jobs
+                            SET status = ?, robbery_count = ?
+                            WHERE guild_id = ? AND user_id = ?
+                            """,
+                            (JobStatus.DEMITIDO.value, robbery_count, guild_id, user_id),
+                        )
+                        connection.execute("COMMIT")
+                        return True, 0
+
+                    # Suspensão
+                    days = suspension_days.get(robbery_count, 30)
+                    suspension_end = now + (days * 24 * 60 * 60)
+
+                    connection.execute(
+                        """
+                        UPDATE jobs
+                        SET status = ?, suspension_end_date = ?, robbery_count = ?
+                        WHERE guild_id = ? AND user_id = ?
+                        """,
+                        (JobStatus.AFASTADO.value, suspension_end, robbery_count, guild_id, user_id),
+                    )
+
+                    connection.execute("COMMIT")
+                    return True, suspension_end
+
+                except Exception:
+                    connection.execute("ROLLBACK")
+                    raise
+
+    async def fire_employee(self, guild_id: int, user_id: int) -> bool:
+        """Remove o emprego do usuário"""
+        async with self.lock:
+            with self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+
+                try:
+                    connection.execute(
+                        """
+                        DELETE FROM jobs
+                        WHERE guild_id = ? AND user_id = ?
+                        """,
+                        (guild_id, user_id),
+                    )
+
+                    connection.execute("COMMIT")
+                    return True
+
+                except Exception:
+                    connection.execute("ROLLBACK")
+                    raise
+
 
 # ============================================================
 # confirmação do pix
@@ -488,6 +838,100 @@ class PixConfirmationView(discord.ui.View):
             await self.message.edit(embed=embed, view=self)
         except discord.HTTPException:
             pass
+
+
+# ============================================================
+# seleção de profissões
+# ============================================================
+
+class JobSelectView(discord.ui.View):
+    def __init__(self, database: EconomyDatabase, guild_id: int, user_id: int):
+        super().__init__(timeout=60)
+        self.database = database
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.selected_job: JobData | None = None
+
+    @discord.ui.select(
+        placeholder="selecione uma profissão",
+        min_values=1,
+        max_values=1,
+        options=[
+            discord.SelectOption(label=job.get_name(), value=job.name)
+            for job in JobData
+        ],
+    )
+    async def select_job(
+        self,
+        interaction: discord.Interaction,
+        select: discord.ui.Select,
+    ) -> None:
+        job_name = select.values[0]
+        self.selected_job = JobData[job_name]
+
+        success = await self.database.hire_employee(
+            guild_id=self.guild_id,
+            user_id=self.user_id,
+            job_data=self.selected_job,
+        )
+
+        if not success:
+            await interaction.response.send_message(
+                "você já possui um emprego! use `/demitir` para sair do atual.",
+                ephemeral=True,
+            )
+            return
+
+        # Simula a entrevista
+        approval_chance = self.selected_job.get_approval_chance()
+        interview_result = random.random() < approval_chance
+
+        if interview_result:
+            embed = discord.Embed(
+                title="parabéns! você foi aprovado!",
+                description=f"você é agora um(a) **{self.selected_job.get_name()}**.",
+                color=discord.Color.green(),
+            )
+            embed.add_field(
+                name="salário mensal",
+                value=f"R$ {self.selected_job.get_salary():,}".replace(",", "."),
+                inline=True,
+            )
+            embed.add_field(
+                name="meta mensal",
+                value=f"{self.selected_job.get_monthly_goal()} trabalhos",
+                inline=True,
+            )
+            embed.add_field(
+                name="próximo passo",
+                value="use `/trabalhar` para começar a ganhar dinheiro!",
+                inline=False,
+            )
+
+            await interaction.response.send_message(embed=embed)
+        else:
+            # Remove o emprego
+            await self.database.fire_employee(self.guild_id, self.user_id)
+
+            embed = discord.Embed(
+                title="reprovado na entrevista!",
+                description=f"você não foi aprovado para a posição de **{self.selected_job.get_name()}**.",
+                color=discord.Color.red(),
+            )
+            embed.add_field(
+                name="chance de aprovação",
+                value=f"{approval_chance * 100:.0f}%",
+                inline=False,
+            )
+            embed.add_field(
+                name="próxima tentativa",
+                value="você pode tentar novamente em 24 horas.",
+                inline=False,
+            )
+
+            await interaction.response.send_message(embed=embed)
+
+        self.stop()
 
 
 # ============================================================
@@ -755,6 +1199,149 @@ class Economia(commands.Cog):
             ).replace(",", "."),
             ephemeral=False,
         )
+
+    # ======================== JOBS COMMANDS ========================
+
+    @app_commands.command(
+        name="entrevista",
+        description="participe de uma entrevista de emprego.",
+    )
+    @app_commands.guilds(discord.Object(id=ECONOMY_GUILD_ID))
+    async def entrevista(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        """Abre o seletor de profissões para a entrevista"""
+        job = await self.database.get_job(interaction.guild_id, interaction.user.id)
+
+        if job is not None:
+            await interaction.response.send_message(
+                "você já possui um emprego! use `/demitir` para sair do atual.",
+                ephemeral=True,
+            )
+            return
+
+        view = JobSelectView(
+            database=self.database,
+            guild_id=interaction.guild_id,
+            user_id=interaction.user.id,
+        )
+
+        embed = discord.Embed(
+            title="entrevista de emprego",
+            description="escolha uma profissão para participar da entrevista.",
+            color=discord.Color.blurple(),
+        )
+
+        await interaction.response.send_message(embed=embed, view=view)
+
+    @app_commands.command(
+        name="trabalhar",
+        description="trabalhe para ganhar dinheiro.",
+    )
+    @app_commands.guilds(discord.Object(id=ECONOMY_GUILD_ID))
+    async def trabalhar(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        """Registra um trabalho para o usuário"""
+        success, message = await self.database.work(interaction.guild_id, interaction.user.id)
+
+        if success:
+            await interaction.response.send_message(message)
+        else:
+            await interaction.response.send_message(message, ephemeral=True)
+
+    @app_commands.command(
+        name="emprego",
+        description="mostra informações sobre seu emprego atual.",
+    )
+    @app_commands.guilds(discord.Object(id=ECONOMY_GUILD_ID))
+    async def emprego(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        """Mostra informações do emprego"""
+        job = await self.database.get_job(interaction.guild_id, interaction.user.id)
+
+        if job is None:
+            await interaction.response.send_message(
+                "você não possui um emprego. use `/entrevista` para participar de uma.",
+                ephemeral=True,
+            )
+            return
+
+        status_emoji = {
+            JobStatus.ATIVO.value: "✅",
+            JobStatus.AFASTADO.value: "⏸️",
+            JobStatus.DEMITIDO.value: "❌",
+        }
+
+        embed = discord.Embed(
+            title=f"informações de emprego",
+            description=f"{status_emoji.get(job['status'], '❓')} {job['job_name']}",
+            color=discord.Color.blurple(),
+        )
+
+        embed.add_field(
+            name="salário mensal",
+            value=f"R$ {job['salary']:,}".replace(",", "."),
+            inline=True,
+        )
+
+        embed.add_field(
+            name="meta mensal",
+            value=f"{job['work_count']}/{job['monthly_goal']} trabalhos",
+            inline=True,
+        )
+
+        embed.add_field(
+            name="contratado em",
+            value=f"<t:{job['hire_date']}:d>",
+            inline=True,
+        )
+
+        embed.add_field(
+            name="próximo pagamento",
+            value=f"<t:{job['next_payment_date']}:R>",
+            inline=True,
+        )
+
+        if job["status"] == JobStatus.AFASTADO.value and job["suspension_end_date"]:
+            embed.add_field(
+                name="volta ao trabalho",
+                value=f"<t:{job['suspension_end_date']}:f>",
+                inline=True,
+            )
+
+        embed.add_field(
+            name="infrações",
+            value=f"{job['robbery_count']}/7",
+            inline=True,
+        )
+
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(
+        name="demitir",
+        description="saia do seu emprego atual.",
+    )
+    @app_commands.guilds(discord.Object(id=ECONOMY_GUILD_ID))
+    async def demitir(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        """Demite o usuário do emprego"""
+        success = await self.database.fire_employee(interaction.guild_id, interaction.user.id)
+
+        if not success:
+            await interaction.response.send_message(
+                "você não possui um emprego.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message("você saiu do seu emprego.")
 
 
 async def setup(bot: commands.Bot) -> None:

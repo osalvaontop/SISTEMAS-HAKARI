@@ -519,7 +519,7 @@ class EconomyDatabase:
                     raise
 
     async def pay_salary(self, guild_id: int, user_id: int) -> tuple[bool, int]:
-        """Processa o pagamento mensal"""
+        """Processa o pagamento mensal e retorna o novo saldo"""
         now = int(time.time())
         next_payment = now + MONTHLY_CYCLE_SECONDS
 
@@ -557,6 +557,18 @@ class EconomyDatabase:
                         (salary_earned, guild_id, user_id),
                     )
 
+                    # Obtém o novo saldo após o pagamento
+                    balance_row = connection.execute(
+                        """
+                        SELECT balance
+                        FROM economy
+                        WHERE guild_id = ? AND user_id = ?
+                        """,
+                        (guild_id, user_id),
+                    ).fetchone()
+
+                    new_balance = int(balance_row["balance"])
+
                     # Reseta o ciclo mensal
                     connection.execute(
                         """
@@ -568,7 +580,7 @@ class EconomyDatabase:
                     )
 
                     connection.execute("COMMIT")
-                    return True, salary_earned
+                    return True, new_balance
 
                 except Exception:
                     connection.execute("ROLLBACK")

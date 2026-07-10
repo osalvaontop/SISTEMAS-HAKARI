@@ -1,12 +1,17 @@
 import os
-import discord
-from discord.ext import commands
-from discord import app_commands
-from keep_alive import keep_alive
 import asyncio
-from discord.errors import HTTPException
 import random
-from discord.ext import tasks
+import discord
+
+from discord.ext import commands, tasks
+from keep_alive import keep_alive
+
+
+TOKEN = os.getenv("TOKEN")
+APPLICATION_ID = os.getenv("APPLICATION_ID")
+
+GUILD_ID = 1500231901397516340
+
 
 status_list = [
     "dis.gg/ccdv | /help",
@@ -23,127 +28,141 @@ status_list = [
 ]
 
 discord_status_list = [
-   discord.Status.idle,
-   discord.Status.dnd,
-   discord.Status.online
+    discord.Status.idle,
+    discord.Status.dnd,
+    discord.Status.online
 ]
 
-@tasks.loop(seconds=40)
-async def trocar_status():
-    # Troca o status do bot periodicamente
-    await bot.change_presence(status=(random.choice(discord_status_list)), activity=discord.CustomActivity(name=random.choice(status_list)))
-    
-        
-TOKEN = os.getenv("TOKEN")
-APPLICATION_ID = os.getenv("APPLICATION_ID")
 
 intents = discord.Intents.all()
 
-# Bot com suporte a prefixo e slash commands
-bot = commands.Bot(command_prefix=",", intents=intents, application_id=int(APPLICATION_ID))
 
-# Sistema anti-spam (erro 429)
-class RateLimitHandler:
+class HakariBot(commands.Bot):
     def __init__(self):
-        self.retry_count = 0
-        self.max_retries = 5
-        self.base_delay = 1
-    
-    async def handle_rate_limit(self, retry_after):
-        """Aguarda e trata rate limit com retry exponencial"""
-        wait_time = max(retry_after or 0, self.base_delay * (2 ** self.retry_count))
-        print(f"⏱️ Rate limit detectado! Aguardando {wait_time}s...")
-        await asyncio.sleep(wait_time)
-        self.retry_count += 1
-        if self.retry_count > self.max_retries:
-            self.retry_count = 0
-    
-    def reset(self):
-        self.retry_count = 0
-        
-rate_limit_handler = RateLimitHandler()
+        super().__init__(
+            command_prefix=",",
+            intents=intents,
+            application_id=int(APPLICATION_ID)
+        )
 
-@bot.event
-async def on_ready():
-    print(f'✅ Logado como {bot.user}')
-    
-    if not trocar_status.is_running():
-            trocar_status.start()
-        
-    rate_limit_handler.reset()
+    async def setup_hook(self):
+        await self.load_cogs()
 
-@bot.event
-async def on_error(event, *args, **kwargs):
-    """Manipulador de erros para detectar e tratar rate limits"""
-    import traceback
-    import sys
-    exc_type, exc_value, exc_traceback = sys.exc_info()
-    
-    # Verifica se é uma HTTPException com status 429 (rate limit)
-    try:
-        status_code = getattr(exc_value, 'status', None) or getattr(exc_value, 'code', None)
-        if status_code == 429:
-            print(f"⚠️ Erro 429 (Rate Limit) detectado!")
-            # tenta obter retry_after do objeto quando disponível
-            retry_after = getattr(exc_value, 'retry_after', 60)
-            await rate_limit_handler.handle_rate_limit(retry_after)
-    except Exception:
-        # Se algo der errado ao checar status/exceção, apenas registra e segue
-        pass
-    
-    traceback.print_exception(exc_type, exc_value, exc_traceback)
-    
-async def load_cogs():
-    """Carrega todos os cogs da pasta ./cogs"""
-    cogs_dir = os.path.join(os.path.dirname(__file__), "cogs")
+        try:
+            guild = discord.Object(id=GUILD_ID)
 
-    if not os.path.isdir(cogs_dir):
-        print("⚠️ Diretório ./cogs não existe.")
-        return
+            comandos_servidor = await self.tree.sync(guild=guild)
+            comandos_globais = await self.tree.sync()
 
-    for filename in os.listdir(cogs_dir):
-        if filename.endswith(".py"):
+            print(
+                f"✅ Slash commands sincronizados: "
+                f"{len(comandos_servidor)} no servidor e "
+                f"{len(comandos_globais)} globais."
+            )
+
+            print(
+                "📌 Comandos do servidor:",
+                [comando.name for comando in comandos_servidor]
+            )
+
+            print(
+                "🌎 Comandos globais:",
+                [comando.name for comando in comandos_globais]
+            )
+
+        except Exception as erro:
+            print(
+                f"❌ Erro ao sincronizar slash commands: "
+                f"{type(erro).__name__}: {erro}"
+            )
+
+    async def load_cogs(self):
+        cogs_dir = os.path.join(os.path.dirname(__file__), "cogs")
+
+        if not os.path.isdir(cogs_dir):
+            print("⚠️ Diretório ./cogs não existe.")
+            return
+
+        for filename in os.listdir(cogs_dir):
+            if not filename.endswith(".py"):
+                continue
+
+            if filename.startswith("__"):
+                continue
+
             cog_name = f"cogs.{filename[:-3]}"
 
             try:
-                try:
-                    await bot.unload_extension(cog_name)
-                except commands.ExtensionNotLoaded:
-                    pass
-                except Exception as e:
-                    print(f"⚠️ Ao descarregar {cog_name}: {e}")
-
-                await bot.load_extension(cog_name)
+                await self.load_extension(cog_name)
                 print(f"✅ Cog carregada: {cog_name}")
 
-            except Exception as e:
-                print(f"❌ Erro ao carregar {cog_name}: {e}")
+            except commands.ExtensionAlreadyLoaded:
+                await self.reload_extension(cog_name)
+                print(f"🔄 Cog recarregada: {cog_name}")
+
+            except Exception as erro:
+                print(
+                    f"❌ Erro ao carregar {cog_name}: "
+                    f"{type(erro).__name__}: {erro}"
+                )
+
+
+bot = HakariBot()
+
+
+@tasks.loop(seconds=40)
+async def trocar_status():
+    await bot.change_presence(
+        status=random.choice(discord_status_list),
+        activity=discord.CustomActivity(
+            name=random.choice(status_list)
+        )
+    )
+
+
+@trocar_status.before_loop
+async def antes_de_trocar_status():
+    await bot.wait_until_ready()
+
+
+@bot.event
+async def on_ready():
+    print(f"✅ Logado como {bot.user} | ID: {bot.user.id}")
+
+    if not trocar_status.is_running():
+        trocar_status.start()
+
+
+@bot.event
+async def on_error(event, *args, **kwargs):
+    import traceback
+    import sys
+
+    print(f"❌ Erro não tratado no evento: {event}")
+
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+    traceback.print_exception(
+        exc_type,
+        exc_value,
+        exc_traceback
+    )
+
 
 async def main():
     if not TOKEN:
-        print("❌ Variável de ambiente TOKEN não encontrada.")
+        print("❌ Variável TOKEN não encontrada.")
         return
 
     if not APPLICATION_ID:
         print("❌ Variável APPLICATION_ID não encontrada.")
         return
 
+    keep_alive(bot)
+
     async with bot:
-        await load_cogs()
-
-        try:
-            synced = await bot.tree.sync()
-            print(f"✅ {len(synced)} slash commands globais sincronizados!")
-
-            for command in synced:
-                print(f"   /{command.name}")
-
-        except Exception as e:
-            print(f"❌ Erro ao sincronizar slash commands: {type(e).__name__}: {e}")
-
-        keep_alive(bot)
         await bot.start(TOKEN)
-        
+
+
 if __name__ == "__main__":
     try:
         asyncio.run(main())

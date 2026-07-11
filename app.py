@@ -18,7 +18,7 @@ from keep_alive import keep_alive
 TOKEN = os.getenv("TOKEN", "").strip()
 APPLICATION_ID_TEXT = os.getenv("APPLICATION_ID", "").strip()
 
-GUILD_ID = 1500231901397516340
+GUILD_ID = 1490679537019654294
 COMMAND_PREFIX = ","
 
 BASE_DIR = Path(__file__).resolve().parent

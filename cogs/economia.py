@@ -700,6 +700,8 @@ class EconomyDatabase:
             )
 
             return result == "DELETE 1"
+
+
 # ============================================================
 # confirmação do pix
 # ============================================================
@@ -1020,51 +1022,6 @@ class Economia(commands.Cog):
             user_id=target_user.id,
         )
 
-        class Economia(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        self.bot = bot
-        self.database = EconomyDatabase(DATABASE_URL)
-
-    async def cog_load(self) -> None:
-        await self.database.initialize()
-
-    async def cog_unload(self) -> None:
-        await self.database.close()
-
-    @staticmethod
-    def is_guild_owner(interaction: discord.Interaction) -> bool:
-        return (
-            interaction.guild is not None
-            and interaction.guild.owner_id == interaction.user.id
-        )
-
-    @app_commands.command(
-        name="saldo",
-        description="mostra o saldo atual do usuário ou de outra pessoa.",
-    )
-    @app_commands.guilds(discord.Object(id=ECONOMY_GUILD_ID))
-    @app_commands.describe(
-        usuario="usuário para verificar o saldo (opcional, padrão é você).",
-    )
-    async def saldo(
-        self,
-        interaction: discord.Interaction,
-        usuario: discord.Member | None = None,
-    ) -> None:
-        target_user = usuario if usuario is not None else interaction.user
-
-        if not isinstance(target_user, discord.Member):
-            await interaction.response.send_message(
-                "não foi possível obter informações do usuário.",
-                ephemeral=True,
-            )
-            return
-
-        balance = await self.database.get_balance(
-            guild_id=interaction.guild_id,
-            user_id=target_user.id,
-        )
-
         if usuario is None:
             embed = discord.Embed(
                 title="💰 carteira",
@@ -1102,7 +1059,7 @@ class Economia(commands.Cog):
                 value=f"<t:{int(discord.utils.utcnow().timestamp())}:f>",
                 inline=False
             )
-            
+
         embed.set_thumbnail(url=target_user.display_avatar.url)
 
         embed.set_footer(
@@ -1146,7 +1103,6 @@ class Economia(commands.Cog):
                 f"novo saldo: **R$ {new_balance:,}**."
             ).replace(",", "."),
         )
-
 
     @app_commands.command(
         name="addreais",
@@ -1499,4 +1455,4 @@ class Economia(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    await bot.add_cog(Economia(bot)) 
+    await bot.add_cog(Economia(bot))

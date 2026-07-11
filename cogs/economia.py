@@ -1,12 +1,11 @@
 import asyncio
 import os
 import random
-import sqlite3
 import time
-from pathlib import Path
 from datetime import datetime, timedelta
 from enum import Enum
 
+import asyncpg
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -27,9 +26,12 @@ MIN_TRANSACTION = 1
 MAX_TRANSACTION = 500_000_000_000_000
 DAILY_COOLDOWN_SECONDS = 24 * 60 * 60
 
-DATABASE_PATH = Path(
-    os.getenv("DATABASE_PATH", "data/economia.db")
-)
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+
+if not DATABASE_URL:
+    raise RuntimeError(
+        "A variável de ambiente DATABASE_URL não foi configurada."
+    )
 
 # Configurações de empregos
 WORK_COOLDOWN_SECONDS = 15 * 60  # 15 minutos
@@ -81,93 +83,117 @@ class JobStatus(Enum):
 # ============================================================
 
 class EconomyDatabase:
-    def __init__(self, database_path: Path):
-        self.database_path = database_path
-        self.lock = asyncio.Lock()
+    def __init__(self, database_url: str):
+        self.database_url = database_url
+        self.pool: asyncpg.Pool | None = None
+        self.init_lock = asyncio.Lock()
 
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
+    async def initialize(self) -> None:
+        if self.pool is not None:
+            return
 
-        print(f"[ECONOMIA] Banco usado: {self.database_path.resolve()}")
-        print(f"[ECONOMIA] Banco já existia: {self.database_path.exists()}")
+        async with self.init_lock:
+            if self.pool is not None:
+                return
 
-        self._create_tables()
-
-    def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(
-            self.database_path,
-            timeout=30,
-            isolation_level=None,
-        )
-        connection.row_factory = sqlite3.Row
-        return connection
-
-    def _create_tables(self) -> None:
-        with self._connect() as connection:
-            connection.execute("PRAGMA journal_mode=WAL;")
-            connection.execute("PRAGMA foreign_keys=ON;")
-
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS economy (
-                    guild_id INTEGER NOT NULL,
-                    user_id INTEGER NOT NULL,
-                    balance INTEGER NOT NULL DEFAULT 0 CHECK(balance >= 0),
-                    last_daily INTEGER,
-                    PRIMARY KEY (guild_id, user_id)
-                )
-                """
+            self.pool = await asyncpg.create_pool(
+                dsn=self.database_url,
+                min_size=1,
+                max_size=5,
+                command_timeout=30,
             )
 
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS jobs (
-                    guild_id INTEGER NOT NULL,
-                    user_id INTEGER NOT NULL,
-                    job_name TEXT NOT NULL,
-                    salary INTEGER NOT NULL,
-                    monthly_goal INTEGER NOT NULL,
-                    work_count INTEGER NOT NULL DEFAULT 0,
-                    hire_date INTEGER NOT NULL,
-                    cycle_start_date INTEGER NOT NULL,
-                    next_payment_date INTEGER NOT NULL,
-                    last_work_date INTEGER,
-                    robbery_count INTEGER NOT NULL DEFAULT 0,
-                    suspension_end_date INTEGER,
-                    status TEXT NOT NULL DEFAULT 'ativo',
-                    PRIMARY KEY (guild_id, user_id)
+            async with self.pool.acquire() as connection:
+                await connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS economy (
+                        guild_id BIGINT NOT NULL,
+                        user_id BIGINT NOT NULL,
+                        balance BIGINT NOT NULL DEFAULT 0 CHECK(balance >= 0),
+                        last_daily BIGINT,
+                        PRIMARY KEY (guild_id, user_id)
+                    )
+                    """
                 )
-                """
-            )
+
+                await connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS jobs (
+                        guild_id BIGINT NOT NULL,
+                        user_id BIGINT NOT NULL,
+                        job_name TEXT NOT NULL,
+                        salary BIGINT NOT NULL,
+                        monthly_goal INTEGER NOT NULL,
+                        work_count INTEGER NOT NULL DEFAULT 0,
+                        hire_date BIGINT NOT NULL,
+                        cycle_start_date BIGINT NOT NULL,
+                        next_payment_date BIGINT NOT NULL,
+                        last_work_date BIGINT,
+                        robbery_count INTEGER NOT NULL DEFAULT 0,
+                        suspension_end_date BIGINT,
+                        status TEXT NOT NULL DEFAULT 'ativo',
+                        PRIMARY KEY (guild_id, user_id)
+                    )
+                    """
+                )
+
+                database_name = await connection.fetchval(
+                    "SELECT current_database()"
+                )
+                total_accounts = await connection.fetchval(
+                    "SELECT COUNT(*) FROM economy"
+                )
+
+                print(f"[ECONOMIA] PostgreSQL conectado: {database_name}")
+                print(f"[ECONOMIA] Contas salvas: {total_accounts}")
+
+    async def close(self) -> None:
+        if self.pool is not None:
+            await self.pool.close()
+            self.pool = None
+
+    async def _get_pool(self) -> asyncpg.Pool:
+        await self.initialize()
+
+        if self.pool is None:
+            raise RuntimeError("O pool do PostgreSQL não foi inicializado.")
+
+        return self.pool
 
     @staticmethod
-    def _ensure_account(
-        connection: sqlite3.Connection,
+    async def _ensure_account(
+        connection: asyncpg.Connection,
         guild_id: int,
         user_id: int,
     ) -> None:
-        connection.execute(
+        await connection.execute(
             """
-            INSERT OR IGNORE INTO economy (guild_id, user_id, balance, last_daily)
-            VALUES (?, ?, 0, NULL)
+            INSERT INTO economy (guild_id, user_id, balance, last_daily)
+            VALUES ($1, $2, 0, NULL)
+            ON CONFLICT (guild_id, user_id) DO NOTHING
             """,
-            (guild_id, user_id),
+            guild_id,
+            user_id,
         )
 
     async def get_balance(self, guild_id: int, user_id: int) -> int:
-        async with self.lock:
-            with self._connect() as connection:
-                self._ensure_account(connection, guild_id, user_id)
+        pool = await self._get_pool()
 
-                row = connection.execute(
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                await self._ensure_account(connection, guild_id, user_id)
+
+                balance = await connection.fetchval(
                     """
                     SELECT balance
                     FROM economy
-                    WHERE guild_id = ? AND user_id = ?
+                    WHERE guild_id = $1 AND user_id = $2
                     """,
-                    (guild_id, user_id),
-                ).fetchone()
+                    guild_id,
+                    user_id,
+                )
 
-                return int(row["balance"])
+                return int(balance)
 
     async def add_money(
         self,
@@ -175,37 +201,25 @@ class EconomyDatabase:
         user_id: int,
         amount: int,
     ) -> int:
-        async with self.lock:
-            with self._connect() as connection:
-                connection.execute("BEGIN IMMEDIATE")
+        pool = await self._get_pool()
 
-                try:
-                    self._ensure_account(connection, guild_id, user_id)
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                await self._ensure_account(connection, guild_id, user_id)
 
-                    connection.execute(
-                        """
-                        UPDATE economy
-                        SET balance = balance + ?
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (amount, guild_id, user_id),
-                    )
+                balance = await connection.fetchval(
+                    """
+                    UPDATE economy
+                    SET balance = balance + $1
+                    WHERE guild_id = $2 AND user_id = $3
+                    RETURNING balance
+                    """,
+                    amount,
+                    guild_id,
+                    user_id,
+                )
 
-                    row = connection.execute(
-                        """
-                        SELECT balance
-                        FROM economy
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (guild_id, user_id),
-                    ).fetchone()
-
-                    connection.execute("COMMIT")
-                    return int(row["balance"])
-
-                except Exception:
-                    connection.execute("ROLLBACK")
-                    raise
+                return int(balance)
 
     async def remove_money(
         self,
@@ -213,45 +227,41 @@ class EconomyDatabase:
         user_id: int,
         amount: int,
     ) -> tuple[bool, int]:
-        async with self.lock:
-            with self._connect() as connection:
-                connection.execute("BEGIN IMMEDIATE")
+        pool = await self._get_pool()
 
-                try:
-                    self._ensure_account(connection, guild_id, user_id)
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                await self._ensure_account(connection, guild_id, user_id)
 
-                    row = connection.execute(
-                        """
-                        SELECT balance
-                        FROM economy
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (guild_id, user_id),
-                    ).fetchone()
+                current_balance = await connection.fetchval(
+                    """
+                    SELECT balance
+                    FROM economy
+                    WHERE guild_id = $1 AND user_id = $2
+                    FOR UPDATE
+                    """,
+                    guild_id,
+                    user_id,
+                )
 
-                    current_balance = int(row["balance"])
+                current_balance = int(current_balance)
 
-                    if current_balance < amount:
-                        connection.execute("ROLLBACK")
-                        return False, current_balance
+                if current_balance < amount:
+                    return False, current_balance
 
-                    new_balance = current_balance - amount
+                new_balance = await connection.fetchval(
+                    """
+                    UPDATE economy
+                    SET balance = balance - $1
+                    WHERE guild_id = $2 AND user_id = $3
+                    RETURNING balance
+                    """,
+                    amount,
+                    guild_id,
+                    user_id,
+                )
 
-                    connection.execute(
-                        """
-                        UPDATE economy
-                        SET balance = ?
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (new_balance, guild_id, user_id),
-                    )
-
-                    connection.execute("COMMIT")
-                    return True, new_balance
-
-                except Exception:
-                    connection.execute("ROLLBACK")
-                    raise
+                return True, int(new_balance)
 
     async def claim_daily(
         self,
@@ -259,58 +269,49 @@ class EconomyDatabase:
         user_id: int,
         amount: int,
     ) -> tuple[bool, int, int]:
-        """
-        retorna:
-        - resgatado: bool
-        - saldo ou segundos restantes: int
-        - próximo timestamp: int
-        """
         now = int(time.time())
+        pool = await self._get_pool()
 
-        async with self.lock:
-            with self._connect() as connection:
-                connection.execute("BEGIN IMMEDIATE")
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                await self._ensure_account(connection, guild_id, user_id)
 
-                try:
-                    self._ensure_account(connection, guild_id, user_id)
+                row = await connection.fetchrow(
+                    """
+                    SELECT balance, last_daily
+                    FROM economy
+                    WHERE guild_id = $1 AND user_id = $2
+                    FOR UPDATE
+                    """,
+                    guild_id,
+                    user_id,
+                )
 
-                    row = connection.execute(
-                        """
-                        SELECT balance, last_daily
-                        FROM economy
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (guild_id, user_id),
-                    ).fetchone()
+                last_daily = row["last_daily"]
 
-                    last_daily = row["last_daily"]
+                if last_daily is not None:
+                    next_daily = int(last_daily) + DAILY_COOLDOWN_SECONDS
 
-                    if last_daily is not None:
-                        next_daily = int(last_daily) + DAILY_COOLDOWN_SECONDS
+                    if now < next_daily:
+                        remaining = next_daily - now
+                        return False, remaining, next_daily
 
-                        if now < next_daily:
-                            remaining = next_daily - now
-                            connection.execute("ROLLBACK")
-                            return False, remaining, next_daily
+                next_daily = now + DAILY_COOLDOWN_SECONDS
 
-                    new_balance = int(row["balance"]) + amount
-                    next_daily = now + DAILY_COOLDOWN_SECONDS
+                new_balance = await connection.fetchval(
+                    """
+                    UPDATE economy
+                    SET balance = balance + $1, last_daily = $2
+                    WHERE guild_id = $3 AND user_id = $4
+                    RETURNING balance
+                    """,
+                    amount,
+                    now,
+                    guild_id,
+                    user_id,
+                )
 
-                    connection.execute(
-                        """
-                        UPDATE economy
-                        SET balance = ?, last_daily = ?
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (new_balance, now, guild_id, user_id),
-                    )
-
-                    connection.execute("COMMIT")
-                    return True, new_balance, next_daily
-
-                except Exception:
-                    connection.execute("ROLLBACK")
-                    raise
+                return True, int(new_balance), next_daily
 
     async def transfer_money(
         self,
@@ -319,88 +320,101 @@ class EconomyDatabase:
         receiver_id: int,
         amount: int,
     ) -> tuple[bool, int, int]:
-        """
-        retorna:
-        - transferido: bool
-        - saldo do remetente
-        - saldo do destinatário
-        """
-        async with self.lock:
-            with self._connect() as connection:
-                connection.execute("BEGIN IMMEDIATE")
+        pool = await self._get_pool()
 
-                try:
-                    self._ensure_account(connection, guild_id, sender_id)
-                    self._ensure_account(connection, guild_id, receiver_id)
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                await self._ensure_account(connection, guild_id, sender_id)
+                await self._ensure_account(connection, guild_id, receiver_id)
 
-                    sender_row = connection.execute(
+                first_id, second_id = sorted((sender_id, receiver_id))
+
+                await connection.fetch(
+                    """
+                    SELECT user_id
+                    FROM economy
+                    WHERE guild_id = $1
+                      AND user_id IN ($2, $3)
+                    ORDER BY user_id
+                    FOR UPDATE
+                    """,
+                    guild_id,
+                    first_id,
+                    second_id,
+                )
+
+                sender_balance = int(
+                    await connection.fetchval(
                         """
                         SELECT balance
                         FROM economy
-                        WHERE guild_id = ? AND user_id = ?
+                        WHERE guild_id = $1 AND user_id = $2
                         """,
-                        (guild_id, sender_id),
-                    ).fetchone()
+                        guild_id,
+                        sender_id,
+                    )
+                )
 
-                    receiver_row = connection.execute(
+                receiver_balance = int(
+                    await connection.fetchval(
                         """
                         SELECT balance
                         FROM economy
-                        WHERE guild_id = ? AND user_id = ?
+                        WHERE guild_id = $1 AND user_id = $2
                         """,
-                        (guild_id, receiver_id),
-                    ).fetchone()
-
-                    sender_balance = int(sender_row["balance"])
-                    receiver_balance = int(receiver_row["balance"])
-
-                    if sender_balance < amount:
-                        connection.execute("ROLLBACK")
-                        return False, sender_balance, receiver_balance
-
-                    new_sender_balance = sender_balance - amount
-                    new_receiver_balance = receiver_balance + amount
-
-                    connection.execute(
-                        """
-                        UPDATE economy
-                        SET balance = ?
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (new_sender_balance, guild_id, sender_id),
+                        guild_id,
+                        receiver_id,
                     )
+                )
 
-                    connection.execute(
-                        """
-                        UPDATE economy
-                        SET balance = ?
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (new_receiver_balance, guild_id, receiver_id),
-                    )
+                if sender_balance < amount:
+                    return False, sender_balance, receiver_balance
 
-                    connection.execute("COMMIT")
-                    return True, new_sender_balance, new_receiver_balance
+                new_sender_balance = await connection.fetchval(
+                    """
+                    UPDATE economy
+                    SET balance = balance - $1
+                    WHERE guild_id = $2 AND user_id = $3
+                    RETURNING balance
+                    """,
+                    amount,
+                    guild_id,
+                    sender_id,
+                )
 
-                except Exception:
-                    connection.execute("ROLLBACK")
-                    raise
+                new_receiver_balance = await connection.fetchval(
+                    """
+                    UPDATE economy
+                    SET balance = balance + $1
+                    WHERE guild_id = $2 AND user_id = $3
+                    RETURNING balance
+                    """,
+                    amount,
+                    guild_id,
+                    receiver_id,
+                )
 
-    # ======================== JOBS METHODS ========================
+                return (
+                    True,
+                    int(new_sender_balance),
+                    int(new_receiver_balance),
+                )
 
     async def get_job(self, guild_id: int, user_id: int) -> dict | None:
-        """Retorna as informações do emprego do usuário"""
-        async with self.lock:
-            with self._connect() as connection:
-                row = connection.execute(
-                    """
-                    SELECT * FROM jobs
-                    WHERE guild_id = ? AND user_id = ?
-                    """,
-                    (guild_id, user_id),
-                ).fetchone()
+        pool = await self._get_pool()
 
-                return dict(row) if row else None
+        async with pool.acquire() as connection:
+            row = await connection.fetchrow(
+                """
+                SELECT *
+                FROM jobs
+                WHERE guild_id = $1 AND user_id = $2
+                """,
+                guild_id,
+                user_id,
+            )
+
+            return dict(row) if row else None
 
     async def hire_employee(
         self,
@@ -408,280 +422,284 @@ class EconomyDatabase:
         user_id: int,
         job_data: JobData,
     ) -> bool:
-        """Contrata um usuário para um emprego"""
         now = int(time.time())
         next_payment = now + MONTHLY_CYCLE_SECONDS
+        pool = await self._get_pool()
 
-        async with self.lock:
-            with self._connect() as connection:
-                connection.execute("BEGIN IMMEDIATE")
+        async with pool.acquire() as connection:
+            result = await connection.execute(
+                """
+                INSERT INTO jobs (
+                    guild_id,
+                    user_id,
+                    job_name,
+                    salary,
+                    monthly_goal,
+                    hire_date,
+                    cycle_start_date,
+                    next_payment_date,
+                    status
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                ON CONFLICT (guild_id, user_id) DO NOTHING
+                """,
+                guild_id,
+                user_id,
+                job_data.get_name(),
+                job_data.get_salary(),
+                job_data.get_monthly_goal(),
+                now,
+                now,
+                next_payment,
+                JobStatus.ATIVO.value,
+            )
 
-                try:
-                    # Verifica se o usuário já possui um emprego
-                    existing_job = connection.execute(
-                        """
-                        SELECT job_name FROM jobs
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (guild_id, user_id),
-                    ).fetchone()
-
-                    if existing_job is not None:
-                        connection.execute("ROLLBACK")
-                        return False
-
-                    connection.execute(
-                        """
-                        INSERT INTO jobs (
-                            guild_id, user_id, job_name, salary, monthly_goal,
-                            hire_date, cycle_start_date, next_payment_date, status
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            guild_id,
-                            user_id,
-                            job_data.get_name(),
-                            job_data.get_salary(),
-                            job_data.get_monthly_goal(),
-                            now,
-                            now,
-                            next_payment,
-                            JobStatus.ATIVO.value,
-                        ),
-                    )
-
-                    connection.execute("COMMIT")
-                    return True
-
-                except Exception:
-                    connection.execute("ROLLBACK")
-                    raise
+            return result == "INSERT 0 1"
 
     async def work(self, guild_id: int, user_id: int) -> tuple[bool, str]:
-        """Registra um trabalho para o usuário"""
         now = int(time.time())
+        pool = await self._get_pool()
 
-        async with self.lock:
-            with self._connect() as connection:
-                connection.execute("BEGIN IMMEDIATE")
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                job = await connection.fetchrow(
+                    """
+                    SELECT *
+                    FROM jobs
+                    WHERE guild_id = $1 AND user_id = $2
+                    FOR UPDATE
+                    """,
+                    guild_id,
+                    user_id,
+                )
 
-                try:
-                    job = connection.execute(
-                        """
-                        SELECT * FROM jobs
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (guild_id, user_id),
-                    ).fetchone()
-
-                    if job is None:
-                        connection.execute("ROLLBACK")
-                        return False, "você não possui um emprego. use `/entrevista` para participar de uma."
-
-                    # Verifica se está afastado
-                    if job["status"] == JobStatus.AFASTADO.value:
-                        if job["suspension_end_date"] and now < job["suspension_end_date"]:
-                            connection.execute("ROLLBACK")
-                            return False, f"você está afastado até <t:{job['suspension_end_date']}:f>."
-
-                        # Remove o afastamento
-                        connection.execute(
-                            """
-                            UPDATE jobs
-                            SET status = ?, suspension_end_date = NULL
-                            WHERE guild_id = ? AND user_id = ?
-                            """,
-                            (JobStatus.ATIVO.value, guild_id, user_id),
-                        )
-
-                    # Verifica cooldown de 15 minutos
-                    if job["last_work_date"] is not None:
-                        next_work_time = job["last_work_date"] + WORK_COOLDOWN_SECONDS
-                        if now < next_work_time:
-                            connection.execute("ROLLBACK")
-                            return False, f"você poderá trabalhar novamente em <t:{next_work_time}:R>."
-
-                    # Verifica se atingiu a meta mensal
-                    if job["work_count"] >= job["monthly_goal"]:
-                        connection.execute("ROLLBACK")
-                        return False, f"você já atingiu a meta mensal de {job['monthly_goal']} trabalhos."
-
-                    # Atualiza o progresso
-                    new_work_count = job["work_count"] + 1
-
-                    connection.execute(
-                        """
-                        UPDATE jobs
-                        SET work_count = ?, last_work_date = ?
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (new_work_count, now, guild_id, user_id),
+                if job is None:
+                    return (
+                        False,
+                        "você não possui um emprego. use `/entrevista` "
+                        "para participar de uma.",
                     )
 
-                    connection.execute("COMMIT")
-                    return True, f"você trabalhou com sucesso! progresso: {new_work_count}/{job['monthly_goal']}"
+                if job["status"] == JobStatus.DEMITIDO.value:
+                    return (
+                        False,
+                        "você foi demitido. use `/demitir` antes de tentar "
+                        "uma nova entrevista.",
+                    )
 
-                except Exception:
-                    connection.execute("ROLLBACK")
-                    raise
+                if job["status"] == JobStatus.AFASTADO.value:
+                    suspension_end = job["suspension_end_date"]
 
-    async def pay_salary(self, guild_id: int, user_id: int) -> tuple[bool, int]:
-        """Processa o pagamento mensal e retorna o novo saldo"""
+                    if suspension_end and now < suspension_end:
+                        return (
+                            False,
+                            f"você está afastado até <t:{suspension_end}:f>.",
+                        )
+
+                    await connection.execute(
+                        """
+                        UPDATE jobs
+                        SET status = $1, suspension_end_date = NULL
+                        WHERE guild_id = $2 AND user_id = $3
+                        """,
+                        JobStatus.ATIVO.value,
+                        guild_id,
+                        user_id,
+                    )
+
+                if job["last_work_date"] is not None:
+                    next_work_time = (
+                        int(job["last_work_date"]) + WORK_COOLDOWN_SECONDS
+                    )
+
+                    if now < next_work_time:
+                        return (
+                            False,
+                            "você poderá trabalhar novamente em "
+                            f"<t:{next_work_time}:R>.",
+                        )
+
+                if job["work_count"] >= job["monthly_goal"]:
+                    return (
+                        False,
+                        "você já atingiu a meta mensal de "
+                        f"{job['monthly_goal']} trabalhos.",
+                    )
+
+                new_work_count = int(job["work_count"]) + 1
+
+                await connection.execute(
+                    """
+                    UPDATE jobs
+                    SET work_count = $1, last_work_date = $2
+                    WHERE guild_id = $3 AND user_id = $4
+                    """,
+                    new_work_count,
+                    now,
+                    guild_id,
+                    user_id,
+                )
+
+                return (
+                    True,
+                    "você trabalhou com sucesso! progresso: "
+                    f"{new_work_count}/{job['monthly_goal']}",
+                )
+
+    async def pay_salary(
+        self,
+        guild_id: int,
+        user_id: int,
+    ) -> tuple[bool, int]:
         now = int(time.time())
         next_payment = now + MONTHLY_CYCLE_SECONDS
+        pool = await self._get_pool()
 
-        async with self.lock:
-            with self._connect() as connection:
-                connection.execute("BEGIN IMMEDIATE")
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                job = await connection.fetchrow(
+                    """
+                    SELECT *
+                    FROM jobs
+                    WHERE guild_id = $1 AND user_id = $2
+                    FOR UPDATE
+                    """,
+                    guild_id,
+                    user_id,
+                )
 
-                try:
-                    job = connection.execute(
-                        """
-                        SELECT * FROM jobs
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (guild_id, user_id),
-                    ).fetchone()
+                if job is None:
+                    return False, 0
 
-                    if job is None:
-                        connection.execute("ROLLBACK")
-                        return False, 0
-
-                    # Calcula o salário
-                    if job["work_count"] >= job["monthly_goal"]:
-                        salary_earned = job["salary"]
-                    else:
-                        salary_earned = int(job["salary"] * job["work_count"] / job["monthly_goal"])
-
-                    # Adiciona o dinheiro
-                    self._ensure_account(connection, guild_id, user_id)
-                    connection.execute(
-                        """
-                        UPDATE economy
-                        SET balance = balance + ?
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (salary_earned, guild_id, user_id),
+                if job["work_count"] >= job["monthly_goal"]:
+                    salary_earned = int(job["salary"])
+                else:
+                    salary_earned = int(
+                        job["salary"]
+                        * job["work_count"]
+                        / job["monthly_goal"]
                     )
 
-                    # Obtém o novo saldo após o pagamento
-                    balance_row = connection.execute(
-                        """
-                        SELECT balance
-                        FROM economy
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (guild_id, user_id),
-                    ).fetchone()
+                await self._ensure_account(connection, guild_id, user_id)
 
-                    new_balance = int(balance_row["balance"])
+                new_balance = await connection.fetchval(
+                    """
+                    UPDATE economy
+                    SET balance = balance + $1
+                    WHERE guild_id = $2 AND user_id = $3
+                    RETURNING balance
+                    """,
+                    salary_earned,
+                    guild_id,
+                    user_id,
+                )
 
-                    # Reseta o ciclo mensal
-                    connection.execute(
+                await connection.execute(
+                    """
+                    UPDATE jobs
+                    SET
+                        work_count = 0,
+                        cycle_start_date = $1,
+                        next_payment_date = $2
+                    WHERE guild_id = $3 AND user_id = $4
+                    """,
+                    now,
+                    next_payment,
+                    guild_id,
+                    user_id,
+                )
+
+                return True, int(new_balance)
+
+    async def add_suspension(
+        self,
+        guild_id: int,
+        user_id: int,
+    ) -> tuple[bool, int]:
+        pool = await self._get_pool()
+
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                job = await connection.fetchrow(
+                    """
+                    SELECT *
+                    FROM jobs
+                    WHERE guild_id = $1 AND user_id = $2
+                    FOR UPDATE
+                    """,
+                    guild_id,
+                    user_id,
+                )
+
+                if job is None:
+                    return False, 0
+
+                now = int(time.time())
+                robbery_count = int(job["robbery_count"]) + 1
+
+                suspension_days = {
+                    1: 5,
+                    2: 10,
+                    3: 15,
+                    4: 20,
+                    5: 25,
+                    6: 30,
+                    7: None,
+                }
+
+                if robbery_count >= 7:
+                    await connection.execute(
                         """
                         UPDATE jobs
-                        SET work_count = 0, cycle_start_date = ?, next_payment_date = ?
-                        WHERE guild_id = ? AND user_id = ?
+                        SET
+                            status = $1,
+                            robbery_count = $2,
+                            suspension_end_date = NULL
+                        WHERE guild_id = $3 AND user_id = $4
                         """,
-                        (now, next_payment, guild_id, user_id),
+                        JobStatus.DEMITIDO.value,
+                        robbery_count,
+                        guild_id,
+                        user_id,
                     )
 
-                    connection.execute("COMMIT")
-                    return True, new_balance
+                    return True, 0
 
-                except Exception:
-                    connection.execute("ROLLBACK")
-                    raise
+                days = suspension_days.get(robbery_count, 30)
+                suspension_end = now + (days * 24 * 60 * 60)
 
-    async def add_suspension(self, guild_id: int, user_id: int) -> tuple[bool, int]:
-        """Adiciona uma suspensão progressiva ao usuário"""
-        async with self.lock:
-            with self._connect() as connection:
-                connection.execute("BEGIN IMMEDIATE")
+                await connection.execute(
+                    """
+                    UPDATE jobs
+                    SET
+                        status = $1,
+                        suspension_end_date = $2,
+                        robbery_count = $3
+                    WHERE guild_id = $4 AND user_id = $5
+                    """,
+                    JobStatus.AFASTADO.value,
+                    suspension_end,
+                    robbery_count,
+                    guild_id,
+                    user_id,
+                )
 
-                try:
-                    job = connection.execute(
-                        """
-                        SELECT * FROM jobs
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (guild_id, user_id),
-                    ).fetchone()
-
-                    if job is None:
-                        connection.execute("ROLLBACK")
-                        return False, 0
-
-                    now = int(time.time())
-                    robbery_count = job["robbery_count"] + 1
-
-                    # Tabela de punições
-                    suspension_days = {
-                        1: 5,
-                        2: 10,
-                        3: 15,
-                        4: 20,
-                        5: 25,
-                        6: 30,
-                        7: None,  # Demissão
-                    }
-
-                    if robbery_count == 7:
-                        # Demissão
-                        connection.execute(
-                            """
-                            UPDATE jobs
-                            SET status = ?, robbery_count = ?
-                            WHERE guild_id = ? AND user_id = ?
-                            """,
-                            (JobStatus.DEMITIDO.value, robbery_count, guild_id, user_id),
-                        )
-                        connection.execute("COMMIT")
-                        return True, 0
-
-                    # Suspensão
-                    days = suspension_days.get(robbery_count, 30)
-                    suspension_end = now + (days * 24 * 60 * 60)
-
-                    connection.execute(
-                        """
-                        UPDATE jobs
-                        SET status = ?, suspension_end_date = ?, robbery_count = ?
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (JobStatus.AFASTADO.value, suspension_end, robbery_count, guild_id, user_id),
-                    )
-
-                    connection.execute("COMMIT")
-                    return True, suspension_end
-
-                except Exception:
-                    connection.execute("ROLLBACK")
-                    raise
+                return True, suspension_end
 
     async def fire_employee(self, guild_id: int, user_id: int) -> bool:
-        """Remove o emprego do usuário"""
-        async with self.lock:
-            with self._connect() as connection:
-                connection.execute("BEGIN IMMEDIATE")
+        pool = await self._get_pool()
 
-                try:
-                    connection.execute(
-                        """
-                        DELETE FROM jobs
-                        WHERE guild_id = ? AND user_id = ?
-                        """,
-                        (guild_id, user_id),
-                    )
+        async with pool.acquire() as connection:
+            result = await connection.execute(
+                """
+                DELETE FROM jobs
+                WHERE guild_id = $1 AND user_id = $2
+                """,
+                guild_id,
+                user_id,
+            )
 
-                    connection.execute("COMMIT")
-                    return True
-
-                except Exception:
-                    connection.execute("ROLLBACK")
-                    raise
-
-
+            return result == "DELETE 1"
 # ============================================================
 # confirmação do pix
 # ============================================================
@@ -960,7 +978,13 @@ class JobSelectView(discord.ui.View):
 class Economia(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.database = EconomyDatabase(DATABASE_PATH)
+        self.database = EconomyDatabase(DATABASE_URL)
+
+    async def cog_load(self) -> None:
+        await self.database.initialize()
+
+    async def cog_unload(self) -> None:
+        await self.database.close()
 
     @staticmethod
     def is_guild_owner(interaction: discord.Interaction) -> bool:
@@ -1364,4 +1388,4 @@ class Economia(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    await bot.add_cog(Economia(bot))
+    await bot.add_cog(Economia(bot)) 

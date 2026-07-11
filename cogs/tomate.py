@@ -126,7 +126,7 @@ async def tomate_core(
             await selected_msg.add_reaction("🍅")
 
             await send(
-                ""
+                "taquei tomate em um dos staffs do servidor, fudeu"
             )
         except discord.Forbidden:
             await send("não tenho permissão pra reagir mensagens pô")

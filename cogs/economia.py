@@ -1067,57 +1067,46 @@ class Economia(commands.Cog):
 
         if usuario is None:
             embed = discord.Embed(
-                title="💰 Carteira",
+                title="💰 carteira",
                 description=f"## **R$ {balance:,}**".replace(",", "."),
                 color=discord.Color.green()
             )
 
             embed.add_field(
-                name="👤 Usuário",
+                name="👤 usuário",
                 value=interaction.user.mention,
                 inline=True
             )
 
             embed.add_field(
-                name="🪙 Saldo Atual",
-                value=f"**R$ {balance:,}**".replace(",", "."),
-                inline=True
-            )
-
-            embed.add_field(
-                name="📅 Consultado",
+                name="📅 consultado",
                 value=f"<t:{int(discord.utils.utcnow().timestamp())}:f>",
                 inline=False
             )
 
         else:
             embed = discord.Embed(
-                title=f"💰 Carteira de {target_user.display_name}",
+                title=f"💰 carteira de {target_user.display_name}",
                 description=f"## **R$ {balance:,}**".replace(",", "."),
                 color=discord.Color.blurple()
             )
 
             embed.add_field(
-                name="👤 Usuário",
+                name="👤 usuário",
                 value=target_user.mention,
                 inline=True
             )
 
             embed.add_field(
-                name="🪙 Saldo Atual",
-                value=f"**R$ {balance:,}**".replace(",", "."),
-                inline=True
-            )
-
-            embed.add_field(
-                name="📅 Consultado",
+                name="📅 consultado",
                 value=f"<t:{int(discord.utils.utcnow().timestamp())}:f>",
                 inline=False
             )
+            
         embed.set_thumbnail(url=target_user.display_avatar.url)
 
         embed.set_footer(
-            text=f"Solicitado por {interaction.user.display_name}",
+            text=f"solicitado por {interaction.user.display_name} | sistema de economia por mattzaddas",
             icon_url=interaction.user.display_avatar.url
         )
 
@@ -1130,7 +1119,7 @@ class Economia(commands.Cog):
     @app_commands.guilds(discord.Object(id=ECONOMY_GUILD_ID))
     @app_commands.describe(
         usuario="usuário que receberá os reais.",
-        quantia="quantidade entre 1 e 500.000.000.000.000 reais.",
+        quantia="quantidade entre 1 e 500 trilhões reais.",
     )
     async def addreais(
         self,
@@ -1166,7 +1155,7 @@ class Economia(commands.Cog):
     @app_commands.guilds(discord.Object(id=ECONOMY_GUILD_ID))
     @app_commands.describe(
         usuario="usuário que receberá os reais.",
-        quantia="quantidade entre 1 e 500.000.000.000.000 reais.",
+        quantia="quantidade entre 1 e 500 trilhões reais.",
     )
     async def addreais(
         self,

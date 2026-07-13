@@ -30,13 +30,13 @@ COGS_DIR = BASE_DIR / "cogs"
 # ============================================================
 
 STATUS_LIST = [
-    "dis.gg/ccdv | /help",
-    "hakari v2.10.24",
+    "sla | /help",
+    "hakari V2.10.25",
     "feito por mattzaddas",
-    "PORRA NORUEGA ESTUDOU O BRASIL",
     "meu prefixo é uma virgula ok",
     "six seven da silva bora bill",
     "pô man, as vezes cansa ser bot",
+    "sub5 ravi random querendo fazer gf com o True Mogger HAKARI 🤣🤣🤣"
     (
         "eu fico 24/7 com o uptime robot toda hora falando "
         "BORA TRABALHAR no meu http de monitoramento sabia"

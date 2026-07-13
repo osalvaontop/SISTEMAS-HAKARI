@@ -20,7 +20,7 @@ DATABASE_STAFF_PROMOTION = os.getenv("DATABASE_STAFF_PROMOTION", "").strip()
 
 if not DATABASE_STAFF_PROMOTION:
     raise RuntimeError(
-        "A variável de ambiente DATABASE_STAFF_PROMOTION não foi configurada."
+        "CADÊ A PORRA DA VARIÁVEL DE AMBIENTE DA DATABASE SEU MERDA"
     )
 
 
@@ -173,38 +173,38 @@ class StaffPromotion(commands.Cog):
             1490679537032495301: {
                 "next_role": 1519102905112858757,
                 "points_needed": 10,
-                "role_name": "staff > moderador"
+                "role_name": "moderador"
             },
             1519102905112858757: {
                 "next_role": 1490679537032495298,
                 "points_needed": 20,
-                "role_name": "moderador > supervisor"
+                "role_name": "supervisor"
             },
             1490679537032495298: {
                 "next_role": 1519102475246899341,
                 "points_needed": 30,
-                "role_name": "supervisor > coordenador"
+                "role_name": "coordenador"
             },
             1519102475246899341: {
                 "next_role": 1490679537032495302,
                 "points_needed": 40,
-                "role_name": "coordenador > diretor"
+                "role_name": "diretor"
             },
             1490679537032495302: {
                 "next_role": 1518394774414037042,
                 "points_needed": 50,
-                "role_name": "diretor > administrador"
+                "role_name": "administrador"
             },
             1518394774414037042: {
                 "next_role": 1490679537032495303,
                 "additional_roles": [1513653295061798922],
                 "points_needed": 70,
-                "role_name": "administrador > gerente"
+                "role_name": "gerente"
             },
             1490679537032495303: {
                 "next_role": 1496282936331337789,
                 "points_needed": 140,
-                "role_name": "gerente > sub owner",
+                "role_name": "sub owner",
                 "is_final": True
             }
         }

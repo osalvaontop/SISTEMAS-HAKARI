@@ -30,26 +30,21 @@ COGS_DIR = BASE_DIR / "cogs"
 # ============================================================
 
 STATUS_LIST = [
-    "sla | /help",
+    "AOOOOOOOOOOOOOOOOO POTÊNCIA | /help",
     "hakari V2.10.25",
     "feito por mattzaddas",
     "meu prefixo é uma virgula ok",
     "six seven da silva bora bill",
     "pô man, as vezes cansa ser bot",
-    "sub5 ravi random querendo fazer gf com o True Mogger HAKARI 🤣🤣🤣"
-    (
-        "eu fico 24/7 com o uptime robot toda hora falando "
-        "BORA TRABALHAR no meu http de monitoramento sabia"
-    ),
+    "sub5 ravi random querendo fazer gf com o True Mogger HAKARI 🤣🤣🤣",
+    "eu fico 24/7 com o uptime robot toda hora falando ""BORA TRABALHAR no meu http de monitoramento sabia",
     "NÃO, ERRO 429 DE NOVO NÃO POR FAVOR DEUS😭😭😭😭😭😭😭😭😭",
-    (
-        "porra um dia eu fui apagado por inteiro porque o matt "
-        "quis mudar de python pra javascript, que merda em"
-    ),
-    (
-        "ok, pelo visto acabei de tomar um jumpscare do erro 429 "
-        "e fiquei off por 6 dias."
-    ),
+    "porra um dia eu fui apagado por inteiro porque o matt quis mudar de python pra javascript, que merda em",
+    "ok, pelo visto acabei de tomar um jumpscare do erro 429 e fiquei off por 6 dias.",
+    "*+67 aura*",
+    "morri",
+    "EU ODEIO A PORRA DA FALTA DE COMMA NUMA SEPARAÇÃO DE STRINGS, ERRO DIABÓLICO",
+    "outro erro diabolico é a MERDA DA IDENTAÇÃO"
 ]
 
 DISCORD_STATUS_LIST = [

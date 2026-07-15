@@ -20,7 +20,7 @@ DATABASE_STAFF_PROMOTION = os.getenv("DATABASE_STAFF_PROMOTION", "").strip()
 
 if not DATABASE_STAFF_PROMOTION:
     raise RuntimeError(
-        "CADÊ A PORRA DA VARIÁVEL DE AMBIENTE DA DATABASE SEU MERDA"
+        "Cadê a variável DATABASE_STAFF_PROMOTION???"
     )
 
 
@@ -169,41 +169,54 @@ class StaffPromotion(commands.Cog):
         self.bot = bot
         self.database = StaffPromotionDatabase(DATABASE_STAFF_PROMOTION)
 
-        self.promotion_chains = {
+            self.promotion_chains = {
+            # 1. Staff (ID 1490679537032495301) -> Próximo: Moderador (ID 1519102905112858757)
             1490679537032495301: {
                 "next_role": 1519102905112858757,
                 "points_needed": 10,
-                "role_name": "moderador"
+                "role_name": "staff"
             },
+            # 2. Moderador (ID 1519102905112858757) -> Próximo: Supervisor (ID 1490679537032495298)
             1519102905112858757: {
                 "next_role": 1490679537032495298,
                 "points_needed": 20,
-                "role_name": "supervisor"
+                "role_name": "moderador"
             },
+            # 3. Supervisor (ID 1490679537032495298) -> Próximo: Coordenador (ID 1519102475246899341)
             1490679537032495298: {
                 "next_role": 1519102475246899341,
                 "points_needed": 30,
-                "role_name": "coordenador"
+                "role_name": "supervisor"
             },
+            # 4. Coordenador (ID 1519102475246899341) -> Próximo: Diretor (ID 1490679537032495302)
             1519102475246899341: {
                 "next_role": 1490679537032495302,
                 "points_needed": 40,
-                "role_name": "diretor"
+                "role_name": "coordenador"
             },
+            # 5. Diretor (ID 1490679537032495302) -> Próximo: Administrador (ID 1518394774414037042)
             1490679537032495302: {
                 "next_role": 1518394774414037042,
                 "points_needed": 50,
-                "role_name": "administrador"
+                "role_name": "diretor"
             },
+            # 6. Administrador (ID 1518394774414037042) -> Próximo: Gerente (ID 1490679537032495303)
             1518394774414037042: {
                 "next_role": 1490679537032495303,
                 "additional_roles": [1513653295061798922],
                 "points_needed": 70,
-                "role_name": "gerente"
+                "role_name": "administrador"
             },
+            # 7. Gerente (ID 1490679537032495303) -> Próximo: Sub Owner (ID 1496282936331337789)
             1490679537032495303: {
                 "next_role": 1496282936331337789,
                 "points_needed": 140,
+                "role_name": "gerente"
+            },
+            # 8. Sub Owner (ID 1496282936331337789) -> Cargo Máximo Final por pontos
+            1496282936331337789: {
+                "next_role": None,
+                "points_needed": 0,
                 "role_name": "sub owner",
                 "is_final": True
             }
